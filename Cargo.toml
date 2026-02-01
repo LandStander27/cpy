@@ -8,11 +8,14 @@ version = { "path" = "./version" }
 
 clap = { version = "4.5.56", features = ["derive"] }
 color-eyre = "0.6.5"
-ctrlc = "3.5.1"
 indicatif = "0.18.3"
 indicatif-log-bridge = "0.2.3"
 log = "0.4.29"
 env_logger = "0.11.8"
+signal-hook = "0.4.3"
+jwalk = "0.8.1"
+rayon = "1.11.0"
+reflink-copy = "0.1.28"
 
 [lints.clippy]
 needless_return = "allow"
