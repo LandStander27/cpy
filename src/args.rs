@@ -1,0 +1,36 @@
+use clap::Parser;
+
+#[allow(unused)]
+use {
+	color_eyre::{
+		Result,
+		eyre::{Context as EyreContext, eyre},
+	},
+	log::{debug, error, info, trace, warn},
+};
+
+#[derive(Parser, Debug, Clone)]
+#[command(name = "cpy", disable_help_flag = true, disable_version_flag = true, version = version::version)]
+#[command(about = "cp but better (hopefully)", long_about = None)]
+pub struct Args {
+	#[arg(short, long, help = "display help", action = clap::builder::ArgAction::Help)]
+	pub help: (),
+
+	#[arg(long, help = "print version", action = clap::builder::ArgAction::Version)]
+	pub version: (),
+
+	#[arg(short, long, help = "increase verbosity (-v: info, -vv: debug, -vvv: trace, -vvvv: trace, more detailed errors)", action = clap::ArgAction::Count)]
+	pub verbose: u8,
+
+	#[arg(short, visible_short_alias = 'R', long, help = "copy directories recursively")]
+	pub recursive: bool,
+
+	#[arg(short, long, help = "preserves all file attributes")]
+	pub archive: bool,
+
+	#[arg(help = "sources to copy", required = true)]
+	pub src: Vec<String>,
+
+	#[arg(help = "destination", required = true)]
+	pub dest: String,
+}

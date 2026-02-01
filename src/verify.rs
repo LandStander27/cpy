@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 #[allow(unused)]
 use {
 	color_eyre::{
@@ -7,7 +9,7 @@ use {
 	log::{debug, error, info, trace, warn},
 };
 
-use crate::*;
+use crate::args::Args;
 
 pub fn verify_sources(src: &Vec<PathBuf>, dest: &Path, args: &Args) -> Result<bool> {
 	let mut stop = false;
