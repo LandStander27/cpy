@@ -56,41 +56,15 @@ pub struct DirTask {
 	pub dest: PathBuf,
 }
 
-// #[derive(Debug)]
-// pub enum Task {
-// 	File(FileTask),
-// 	Dir(DirTask),
-// }
-
-struct DebounceTicker<'a> {
-	ticker: &'a ProgressBar,
-	last_update: std::time::Instant,
-}
-
-impl<'a> DebounceTicker<'a> {
-	pub fn should_change(&self) -> bool {
-		return self.last_update.elapsed().as_millis() >= 750;
-	}
-
-	pub fn change(&mut self, s: impl Into<std::borrow::Cow<'static, str>>) {
-		self.ticker.set_message(s);
-		self.last_update = std::time::Instant::now();
-	}
-}
-
-pub fn index(src: &[PathBuf], dest: PathBuf, options: &Options) -> Index {
+pub fn index(src: &[PathBuf], dest: PathBuf, options: &mut Options) -> Index {
 	let mut index = Index::default();
-	let mut debounce = DebounceTicker {
-		ticker: &options.pb,
-		last_update: std::time::Instant::now(),
-	};
 
 	for src in src {
-		if debounce.should_change() {
-			debounce.change(src.display().to_string());
-		}
+		options
+			.pb
+			.debounce_set_message(|| src.display().to_string());
 
-		if let Err(e) = index_entry(src, &dest, &mut index, options, &mut debounce) {
+		if let Err(e) = index_entry(src, &dest, &mut index, options) {
 			print_error!(e, options.verbose);
 		}
 
@@ -103,20 +77,20 @@ pub fn index(src: &[PathBuf], dest: PathBuf, options: &Options) -> Index {
 	return index;
 }
 
-fn index_entry(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb: &mut DebounceTicker) -> Result<()> {
+fn index_entry(src: &Path, dest: &Path, index: &mut Index, options: &mut Options) -> Result<()> {
 	if src.is_dir() {
-		index_directory(src, dest, index, options, pb)?;
+		index_directory(src, dest, index, options)?;
 	} else {
-		index_file(src, dest, index, options, pb, true)?;
+		index_file(src, dest, index, options, true)?;
 	}
 
 	return Ok(());
 }
 
-fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb: &mut DebounceTicker, is_top_level: bool) -> Result<()> {
-	if pb.should_change() {
-		pb.change(src.display().to_string());
-	}
+fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &mut Options, is_top_level: bool) -> Result<()> {
+	options
+		.pb
+		.debounce_set_message(|| src.display().to_string());
 
 	let metadata = src
 		.metadata()
@@ -142,9 +116,7 @@ fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb:
 	return Ok(());
 }
 
-fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb: &mut DebounceTicker) -> Result<()> {
-	let threads = std::thread::available_parallelism().wrap_err_with(|| "could not get num_threads")?;
-
+fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Options) -> Result<()> {
 	let root_dest = dest.join(
 		src.file_name()
 			.with_context(add_err("could not get filename", src))?,
@@ -161,7 +133,7 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &Options
 
 	for entry in WalkDir::new(src)
 		.skip_hidden(false)
-		.parallelism(jwalk::Parallelism::RayonNewPool(threads.get()))
+		.parallelism(jwalk::Parallelism::RayonNewPool(options.threads))
 		.follow_links(false)
 	{
 		if options.abort.load(Ordering::Relaxed) {
@@ -205,7 +177,7 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &Options
 		};
 		if metadata.is_dir() {
 			index.add_directory(DirTask { src: abs, dest: dest_path });
-		} else if let Err(e) = index_file(&abs, &dest_path, index, options, pb, false) {
+		} else if let Err(e) = index_file(&abs, &dest_path, index, options, false) {
 			print_error!(e, options.verbose);
 			continue;
 		}

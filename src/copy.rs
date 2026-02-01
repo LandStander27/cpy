@@ -1,4 +1,11 @@
-use std::{fs::File, sync::atomic::AtomicUsize};
+use std::{
+	fs::File,
+	path::Path,
+	sync::{
+		Arc,
+		atomic::{AtomicUsize, Ordering},
+	},
+};
 
 use nix::fcntl::copy_file_range;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -12,17 +19,18 @@ use {
 	log::{debug, error, info, trace, warn},
 };
 
-use crate::*;
-use crate::{index::*, util::attr::copy_attributes};
+use crate::{
+	index::Index,
+	options::Options,
+	print_error,
+	util::{attr::copy_attributes, log::add_err},
+};
 
 pub fn copy(index: &Index, options: &Options) -> Result<()> {
-	create_directories(&index.dirs)?;
-
 	let completed_files = Arc::new(AtomicUsize::new(0));
 
-	let threads = std::thread::available_parallelism().with_context(|| "could not get num_threads")?;
 	let pool = rayon::ThreadPoolBuilder::new()
-		.num_threads(threads.into())
+		.num_threads(options.threads)
 		.build()
 		.wrap_err_with(|| "could not create thread pool")?;
 
@@ -39,6 +47,8 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 			print_error!(e, options.verbose);
 		}
 	}
+
+	info!("copied {} files", completed_files.load(Ordering::Relaxed));
 
 	return Ok(());
 }
@@ -59,7 +69,9 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 			drop(dest_file);
 
 			if !options.pb.is_finished() {
-				options.pb.finish_with_message("Aborted");
+				options
+					.pb
+					.finish(&options.multibar, Some("Aborted".to_string()));
 			}
 
 			if let Err(e) = std::fs::remove_file(dest).with_context(add_err("could not remove incomplete file", dest)) {
@@ -93,26 +105,7 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 	let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
 	options
 		.pb
-		.set_message(format!("Copying: {}/{} files", completed, total_files));
-
-	return Ok(());
-}
-
-fn create_directories(dirs: &[DirTask]) -> Result<()> {
-	let mut dirs: Vec<&DirTask> = dirs.iter().collect();
-	dirs.sort_unstable_by_key(|d| d.dest.components().count());
-	dirs.dedup_by_key(|d| &d.dest);
-
-	for dir in &dirs {
-		match std::fs::create_dir(&dir.dest) {
-			Ok(()) => {}
-			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-				std::fs::create_dir_all(&dir.dest).with_context(add_err("could not create directory", &dir.src))?;
-			}
-			Err(e) => return Err(e).with_context(add_err("could not create directory", &dir.src))?,
-		}
-	}
+		.set_message(format!("copying: {}/{} files", completed, total_files));
 
 	return Ok(());
 }

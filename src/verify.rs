@@ -11,7 +11,7 @@ use {
 
 use crate::args::Args;
 
-pub fn verify_sources(src: &Vec<PathBuf>, dest: &Path, args: &Args) -> Result<bool> {
+pub fn verify_sources(src: &Vec<PathBuf>, dest: &Path, args: &Args) -> bool {
 	let mut stop = false;
 
 	for src in src {
@@ -30,5 +30,5 @@ pub fn verify_sources(src: &Vec<PathBuf>, dest: &Path, args: &Args) -> Result<bo
 		stop = true;
 	}
 
-	return Ok(!stop);
+	return !stop;
 }

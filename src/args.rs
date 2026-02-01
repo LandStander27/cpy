@@ -28,9 +28,23 @@ pub struct Args {
 	#[arg(short, long, help = "preserves all file attributes")]
 	pub archive: bool,
 
+	#[arg(short = 'j', long, help = "threads to use for copying", value_parser = over_0, default_value_t = 1)]
+	pub threads: usize,
+
 	#[arg(help = "sources to copy", required = true)]
 	pub src: Vec<String>,
 
 	#[arg(help = "destination", required = true)]
 	pub dest: String,
+}
+
+fn over_0(s: &str) -> Result<usize, String> {
+	let num: usize = s
+		.parse()
+		.map_err(|_| format!("`{s}` is not a valid usize"))?;
+	if num > 0 {
+		Ok(num)
+	} else {
+		Err("--threads must be >0".to_string())
+	}
 }
