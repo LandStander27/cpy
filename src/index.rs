@@ -16,7 +16,8 @@ use crate::*;
 
 #[derive(Debug)]
 pub struct Index {
-	pub tasks: Vec<Task>,
+	pub files: Vec<FileTask>,
+	pub dirs: Vec<DirTask>,
 	pub total_size: u64,
 	pub total_files: u64,
 }
@@ -26,55 +27,40 @@ impl Default for Index {
 		return Self {
 			total_files: 0,
 			total_size: 0,
-			tasks: Vec::with_capacity(100000),
+			files: Vec::new(),
+			dirs: Vec::new(),
 		};
 	}
 }
 
 impl Index {
-	pub fn add_task(&mut self, task: impl Into<Task>) {
-		self.tasks.push(task.into());
+	fn add_file(&mut self, task: FileTask) {
+		self.files.push(task);
 	}
 
-	// fn add_file(&mut self, task: FileTask) {
-	// 	self.tasks.push(Task::File(task));
-	// }
-
-	// fn add_directory(&mut self, task: DirTask) {
-	// 	self.tasks.push(Task::Dir(task));
-	// }
+	fn add_directory(&mut self, task: DirTask) {
+		self.dirs.push(task);
+	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileTask {
 	pub src: PathBuf,
 	pub dest: PathBuf,
 	pub size: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DirTask {
 	pub src: PathBuf,
 	pub dest: PathBuf,
 }
 
-#[derive(Debug)]
-pub enum Task {
-	File(FileTask),
-	Dir(DirTask),
-}
-
-impl From<FileTask> for Task {
-	fn from(f: FileTask) -> Self {
-		return Task::File(f);
-	}
-}
-
-impl From<DirTask> for Task {
-	fn from(d: DirTask) -> Self {
-		return Task::Dir(d);
-	}
-}
+// #[derive(Debug)]
+// pub enum Task {
+// 	File(FileTask),
+// 	Dir(DirTask),
+// }
 
 struct DebounceTicker<'a> {
 	ticker: &'a ProgressBar,
@@ -92,7 +78,7 @@ impl<'a> DebounceTicker<'a> {
 	}
 }
 
-pub fn index(src: &[&Path], dest: PathBuf, options: &Options) -> Index {
+pub fn index(src: &[PathBuf], dest: PathBuf, options: &Options) -> Index {
 	let mut index = Index::default();
 	let mut debounce = DebounceTicker {
 		ticker: &options.pb,
@@ -121,13 +107,13 @@ fn index_entry(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb
 	if src.is_dir() {
 		index_directory(src, dest, index, options, pb)?;
 	} else {
-		index_file(src, dest, index, options, pb)?;
+		index_file(src, dest, index, options, pb, true)?;
 	}
 
 	return Ok(());
 }
 
-fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb: &mut DebounceTicker) -> Result<()> {
+fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb: &mut DebounceTicker, is_top_level: bool) -> Result<()> {
 	if pb.should_change() {
 		pb.change(src.display().to_string());
 	}
@@ -136,7 +122,7 @@ fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb:
 		.metadata()
 		.with_context(add_err("could not get file metadata", src))?;
 
-	let dest_path = if options.dest_is_dir {
+	let dest_path = if is_top_level && options.dest_is_dir {
 		dest.join(
 			src.file_name()
 				.with_context(add_err("could not get filename", src))?,
@@ -145,11 +131,11 @@ fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &Options, pb:
 		dest.to_path_buf()
 	};
 
-	index.add_task(Task::File(FileTask {
+	index.add_file(FileTask {
 		src: src.to_path_buf(),
 		dest: dest_path,
 		size: metadata.size(),
-	}));
+	});
 	index.total_files += 1;
 	index.total_size += metadata.size();
 
@@ -164,10 +150,10 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &Options
 			.with_context(add_err("could not get filename", src))?,
 	);
 
-	index.add_task(Task::Dir(DirTask {
+	index.add_directory(DirTask {
 		src: src.to_path_buf(),
 		dest: root_dest.clone(),
-	}));
+	});
 
 	if !options.recursive {
 		return Ok(());
@@ -218,8 +204,8 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &Options
 			}
 		};
 		if metadata.is_dir() {
-			index.add_task(Task::Dir(DirTask { src: abs, dest: dest_path }));
-		} else if let Err(e) = index_file(&abs, &dest_path, index, options, pb) {
+			index.add_directory(DirTask { src: abs, dest: dest_path });
+		} else if let Err(e) = index_file(&abs, &dest_path, index, options, pb, false) {
 			print_error!(e, options.verbose);
 			continue;
 		}

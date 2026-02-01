@@ -123,7 +123,20 @@ fn main() -> Result<()> {
 
 	debug!("running with: {args:#?}");
 
-	let src: Vec<&Path> = args.src.iter().map(Path::new).collect();
+	let mut src: Vec<PathBuf> = Vec::new();
+	for i in args.src.iter().map(Path::new) {
+		let can = match i
+			.canonicalize()
+			.with_context(add_err("could not canonicalize path", i))
+		{
+			Ok(o) => o,
+			Err(e) => {
+				print_error!(e, args.verbose);
+				return Ok(());
+			}
+		};
+		src.push(can);
+	}
 	let dest = PathBuf::from(&args.dest);
 
 	trace!("verifying sources");
@@ -152,13 +165,31 @@ fn main() -> Result<()> {
 	ticker.enable_steady_tick(std::time::Duration::from_millis(100));
 	ticker.set_prefix("Indexing sources");
 
-	let options = Options::new(&args, &dest, ticker.clone(), abort);
+	let mut options = Options::new(&args, &dest, ticker.clone(), abort);
 	let index = index::index(&src, dest, &options);
 	ticker.disable_steady_tick();
 	ticker.finish_and_clear();
 	multibar.remove(&ticker);
 
-	// debug!("index: {index:#?}");
+	let pb = multibar.add(
+		ProgressBar::new(index.total_size).with_style(
+			ProgressStyle::with_template(
+				"{msg:.bold} {wide_bar:.blue} {percent:>3}% • {binary_bytes}/{binary_total_bytes} • {binary_bytes_per_sec} • Elapsed: {elapsed_precise} • ETA:{eta_precise}",
+			)
+			.unwrap()
+			.progress_chars("█▓▒░  "),
+		),
+	);
+	options.pb = pb;
+	options
+		.pb
+		.set_message(format!("Copying: 0/{} files", index.total_files));
+
+	if let Err(e) = copy::copy(&index, &options) {
+		print_error!(e, options.verbose);
+	}
+
+	debug!("index: {index:#?}");
 
 	return Ok(());
 }

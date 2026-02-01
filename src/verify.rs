@@ -9,7 +9,7 @@ use {
 
 use crate::*;
 
-pub fn verify_sources(src: &Vec<&Path>, dest: &Path, args: &Args) -> Result<bool> {
+pub fn verify_sources(src: &Vec<PathBuf>, dest: &Path, args: &Args) -> Result<bool> {
 	let mut stop = false;
 
 	for src in src {
