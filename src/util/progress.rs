@@ -18,7 +18,7 @@ pub struct ProgressBar {
 }
 
 impl ProgressBar {
-	#[cfg(test)]
+	// #[cfg(test)]
 	pub fn new_dummy() -> Self {
 		return Self {
 			pb: None,

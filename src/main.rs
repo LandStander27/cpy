@@ -106,7 +106,12 @@ fn main() -> Result<std::process::ExitCode> {
 		}
 	}
 
-	let pb = ProgressBar::new_bar(&multibar, index.total_size, Some(format!("copying: 0/{} files", index.total_files)));
+	// 5 MB
+	let pb = if index.total_files == 1 && index.total_size <= 1024 * 1024 * 1024 * 5 {
+		ProgressBar::new_dummy()
+	} else {
+		ProgressBar::new_bar(&multibar, index.total_size, Some(format!("copying: 0/{} files", index.total_files)))
+	};
 	options.pb = pb;
 
 	if let Err(e) = copy::copy(&index, &options) {

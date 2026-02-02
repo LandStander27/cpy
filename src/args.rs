@@ -52,11 +52,11 @@ pub struct Args {
 	pub dest: String,
 
 	#[cfg(feature = "generators")]
-	#[arg(long = "generate-man")]
+	#[arg(long = "generate-man", help = "do not use")]
 	pub generate_man: String,
 
 	#[cfg(feature = "generators")]
-	#[arg(value_enum, long = "generate-shell")]
+	#[arg(value_enum, long = "generate-shell", help = "do not use")]
 	pub generate_shell: clap_complete::Shell,
 }
 
