@@ -12,7 +12,7 @@
 
 ## 📦 Installation
 
-### 🧪 Arch-based distros (via the landware repo)
+### 🧪 Arch-based distros, via the `landware` repo (Arch, EndeavourOS, CachyOS, Manjaro, etc.)
 ```sh
 # Install pacsync command
 sudo pacman -S --needed pacutils
