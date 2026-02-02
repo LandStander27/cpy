@@ -28,8 +28,9 @@ sudo pacsync landware
 # Install like a normal package
 sudo pacman -S cpy-git
 ```
+> Note: it is recommended to run a full system update (via `pacman -Syu`) after syncing any repository
 
-### 🔧 Building
+### 🔧 Manually
 ```sh
 # Install deps
 ## Arch Linux
@@ -39,7 +40,7 @@ sudo pacman -S --needed git rust sed libgit2 gzip
 git clone https://codeberg.org/Land/autoclicker.git
 cd autoclicker
 
-# Create zsh shell completion + manpage
+# Generate zsh shell completion + manpage
 cargo b --locked --release --features=generators
 ./target/release/cpy . . --generate-man cpy.1 --generate-shell zsh > _cpy
 gzip cpy.1
@@ -81,6 +82,5 @@ Options:
   -u, --update             ignore files with destinations that already exist
       --reflink <MODE>  copy files as CoW copies. see https://btrfs.readthedocs.io/en/latest/Reflink.html [default: auto] [possible values: never, always, auto]
 ```
-
 
 > Inspired by [cpx](https://github.com/11happy/cpx/tree/7ab459fcdd9b2e94d21105c1e6706a8445056bb4)
