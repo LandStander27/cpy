@@ -89,8 +89,8 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 
 	trace!("{} -> {}", src.display(), dest.display());
 
-	if options.reflink != ReflinkMode::Never {
-		return reflink(src, dest, file_size, completed_files, total_files, options);
+	if options.reflink != ReflinkMode::Never && reflink(src, dest, file_size, completed_files, total_files, options)? {
+		return Ok(());
 	}
 
 	let mut src_file = File::open(src).src("could not open file read-only", src)?;
@@ -178,12 +178,12 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 	return Ok(());
 }
 
-fn reflink(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<AtomicUsize>, total_files: u64, options: &Options) -> Result<()> {
+fn reflink(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<AtomicUsize>, total_files: u64, options: &Options) -> Result<bool> {
 	if dest.try_exists().unwrap_or(false) {
 		if options.force && options.reflink == ReflinkMode::Always {
 			std::fs::remove_file(dest).src("could not delete file", dest)?;
 		} else {
-			return Ok(());
+			return Ok(false);
 		}
 	}
 
@@ -204,9 +204,9 @@ fn reflink(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Atomic
 		}
 		Err(_) => {
 			trace!("auto reflink failed");
-			return Ok(());
+			return Ok(false);
 		}
 	}
 
-	return Ok(());
+	return Ok(true);
 }
