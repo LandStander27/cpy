@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "generators", allow(unreachable_code))]
+
 use std::sync::atomic::Ordering;
 
 use clap::Parser;
