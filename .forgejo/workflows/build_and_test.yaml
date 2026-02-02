@@ -15,10 +15,10 @@ jobs:
   build:
     runs-on: docker
     container:
-      image: archlinux:latest
+      image: archlinux
     steps:
       - name: Install deps
-        run: pacman -Scc --noconfirm && pacman --noconfirm --needed -Syu git nodejs glib2 glibc rust sed libgit2
+        run: pacman --noconfirm --needed -Syyu git nodejs glib2 glibc rust sed libgit2
 
       - uses: actions/checkout@v4
       - name: Build binary
