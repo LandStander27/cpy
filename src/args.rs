@@ -28,8 +28,11 @@ pub struct Args {
 	#[arg(short, long, help = "preserves all file attributes")]
 	pub archive: bool,
 
-	#[arg(short = 'j', long, help = "threads to use for copying", value_parser = over_0, default_value_t = 1)]
+	#[arg(short = 'j', long, help = "threads to use for copying", value_parser = over_0, default_value_t = 4)]
 	pub threads: usize,
+
+	#[arg(short, long, help = "if an existing destination file cannot be created, remove it and try again")]
+	pub force: bool,
 
 	#[arg(help = "sources to copy", required = true)]
 	pub src: Vec<String>,

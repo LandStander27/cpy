@@ -1,7 +1,16 @@
-use std::{os::unix::fs::MetadataExt, path::PathBuf};
+use std::{
+	os::unix::fs::MetadataExt,
+	path::{Path, PathBuf},
+	sync::atomic::Ordering,
+};
 
-use color_eyre::eyre::ContextCompat;
 use jwalk::WalkDir;
+
+use crate::{
+	options::Options,
+	print_error,
+	util::log::{ContextCompatExt, WrapErrExt},
+};
 
 #[allow(unused)]
 use {
@@ -11,8 +20,6 @@ use {
 	},
 	log::{debug, error, info, trace, warn},
 };
-
-use crate::*;
 
 #[derive(Debug)]
 pub struct Index {
@@ -92,15 +99,10 @@ fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &mut Options,
 		.pb
 		.debounce_set_message(|| src.display().to_string());
 
-	let metadata = src
-		.metadata()
-		.with_context(add_err("could not get file metadata", src))?;
+	let metadata = src.metadata().src("could not get file metadata", src)?;
 
 	let dest_path = if is_top_level && options.dest_is_dir {
-		dest.join(
-			src.file_name()
-				.with_context(add_err("could not get filename", src))?,
-		)
+		dest.join(src.file_name().src("could not get filename", src)?)
 	} else {
 		dest.to_path_buf()
 	};
@@ -117,10 +119,7 @@ fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &mut Options,
 }
 
 fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Options) -> Result<()> {
-	let root_dest = dest.join(
-		src.file_name()
-			.with_context(add_err("could not get filename", src))?,
-	);
+	let root_dest = dest.join(src.file_name().src("could not get filename", src)?);
 
 	index.add_directory(DirTask {
 		src: src.to_path_buf(),
@@ -141,7 +140,7 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 			break;
 		}
 
-		let entry = match entry.with_context(add_err("could not read directory", src)) {
+		let entry = match entry.src("could not read directory", src) {
 			Ok(o) => o,
 			Err(e) => {
 				print_error!(e, options.verbose);
@@ -155,7 +154,7 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 
 		let relative = match abs
 			.strip_prefix(src)
-			.with_context(add_err("could not get relative path", &abs))
+			.src("could not get relative path", &abs)
 		{
 			Ok(o) => o,
 			Err(e) => {
@@ -165,10 +164,7 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 		};
 
 		let dest_path = root_dest.join(relative);
-		let metadata = match entry
-			.metadata()
-			.with_context(add_err("could not stat directory", &abs))
-		{
+		let metadata = match entry.metadata().src("could not stat directory", &abs) {
 			Ok(o) => o,
 			Err(e) => {
 				print_error!(e, options.verbose);

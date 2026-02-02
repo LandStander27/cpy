@@ -1,5 +1,6 @@
 use std::{
 	fs::File,
+	io::{BufWriter, Read, Write},
 	path::Path,
 	sync::{
 		Arc,
@@ -7,7 +8,6 @@ use std::{
 	},
 };
 
-use nix::fcntl::copy_file_range;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 #[allow(unused)]
@@ -23,7 +23,7 @@ use crate::{
 	index::Index,
 	options::Options,
 	print_error,
-	util::{attr::copy_attributes, log::add_err},
+	util::{attr::copy_attributes, log::WrapErrExt},
 };
 
 pub fn copy(index: &Index, options: &Options) -> Result<()> {
@@ -32,7 +32,7 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 	let pool = rayon::ThreadPoolBuilder::new()
 		.num_threads(options.threads)
 		.build()
-		.wrap_err_with(|| "could not create thread pool")?;
+		.with_context(|| "could not create thread pool")?;
 
 	let results: Vec<Result<()>> = pool.install(|| {
 		index
@@ -54,27 +54,56 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 }
 
 fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<AtomicUsize>, total_files: u64, options: &Options) -> Result<()> {
+	if options.abort.load(Ordering::Relaxed) {
+		return Ok(());
+	}
+
 	trace!("{} -> {}", src.display(), dest.display());
 
-	let src_file = File::open(src).with_context(add_err("could not open file read-only", src))?;
-	let dest_file = File::create(dest).with_context(add_err("could not open file write-only", dest))?;
+	let mut src_file = File::open(src).src("could not open file read-only", src)?;
+	let dest_file = match File::create_new(dest).src("could not open file write-only", dest) {
+		Ok(o) => o,
+		Err(e) if options.force => {
+			std::fs::remove_file(dest).src("could not delete file after open fail", dest)?;
+			File::create_new(dest).src("could not open file write-only", dest)?
+		}
+		Err(e) => return Err(e),
+	};
 
-	const TARGET_UPDATES: u64 = 128;
-	const MIN_CHUNK: usize = 4 * 1024 * 1024;
-	let chunk_size = std::cmp::max(MIN_CHUNK, (file_size / TARGET_UPDATES) as usize);
-	let mut total_copied = 0u64;
+	let mut accumulated_bytes = 0u64;
+
+	let buffer_size: usize = if file_size < 1024 * 1024 {
+		64 * 1024
+	} else if file_size < 8 * 1024 * 1024 {
+		256 * 1024
+	} else if file_size < 64 * 1024 * 1024 {
+		512 * 1024
+	} else if file_size < 512 * 1024 * 1024 {
+		1024 * 1024
+	} else {
+		2 * 1024 * 1024
+	};
+
+	let mut dest_file = BufWriter::with_capacity(buffer_size, dest_file);
+	let mut buffer = vec![0_u8; buffer_size];
+
+	const MAX_UPDATES: u64 = 128;
+	let update_threshold = if file_size > MAX_UPDATES * buffer_size as u64 {
+		file_size / MAX_UPDATES
+	} else {
+		buffer_size as u64
+	};
 
 	loop {
 		if options.abort.load(Ordering::Relaxed) {
+			dest_file.flush().src("could not flush data", dest)?;
 			drop(dest_file);
 
 			if !options.pb.is_finished() {
-				options
-					.pb
-					.finish(&options.multibar, Some("Aborted".to_string()));
+				options.pb.finish(&options.multibar, None);
 			}
 
-			if let Err(e) = std::fs::remove_file(dest).with_context(add_err("could not remove incomplete file", dest)) {
+			if let Err(e) = std::fs::remove_file(dest).src("could not remove incomplete file", dest) {
 				print_error!(e, options.verbose);
 			}
 
@@ -83,23 +112,29 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 			return Ok(());
 		}
 
-		let to_copy = std::cmp::min(chunk_size, (file_size - total_copied) as usize);
-		if to_copy == 0 {
+		let bytes_read = src_file.read(&mut buffer).src("could not read file", src)?;
+		if bytes_read == 0 {
 			break;
 		}
+		dest_file
+			.write_all(&buffer[..bytes_read])
+			.src("could not write to file", dest)?;
 
-		let copied = copy_file_range(&src_file, None, &dest_file, None, to_copy).with_context(add_err("could not copy file", src))?;
-
-		if copied == 0 {
-			break;
+		accumulated_bytes += bytes_read as u64;
+		if accumulated_bytes >= update_threshold {
+			options.pb.inc(accumulated_bytes);
+			accumulated_bytes = 0;
 		}
-
-		total_copied += copied as u64;
-		options.pb.inc(copied as u64);
 	}
 
+	if accumulated_bytes > 0 {
+		options.pb.inc(accumulated_bytes);
+	}
+
+	dest_file.flush().src("could not flush data", dest)?;
+
 	if options.archive {
-		copy_attributes(src, dest).with_context(add_err("could not copy file attributes", src))?;
+		copy_attributes(src, dest).src("could not copy file attributes", src)?;
 	}
 
 	let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;

@@ -7,7 +7,7 @@ use std::{
 use filetime::{FileTime, set_file_mtime};
 use nix::libc;
 
-use crate::util::log::add_err;
+use crate::util::log::WrapErrExt;
 
 #[allow(unused)]
 use {
@@ -19,9 +19,7 @@ use {
 };
 
 pub fn copy_attributes(src: &Path, dest: &Path) -> Result<()> {
-	let metadata = src
-		.metadata()
-		.with_context(add_err("could not stat file", src))?;
+	let metadata = src.metadata().src("could not stat file", src)?;
 
 	copy_mtime(&metadata, src, dest)?;
 	copy_ownership(&metadata, dest)?;
@@ -31,11 +29,9 @@ pub fn copy_attributes(src: &Path, dest: &Path) -> Result<()> {
 }
 
 fn copy_mtime(metadata: &Metadata, src: &Path, dest: &Path) -> Result<()> {
-	let modified_time = metadata
-		.modified()
-		.with_context(add_err("could not get mtime", src))?;
+	let modified_time = metadata.modified().src("could not get mtime", src)?;
 	let system_modified_time = FileTime::from_system_time(modified_time);
-	set_file_mtime(dest, system_modified_time).with_context(add_err("could not set mtime", dest))?;
+	set_file_mtime(dest, system_modified_time).src("could not set mtime", dest)?;
 
 	return Ok(());
 }
@@ -43,14 +39,14 @@ fn copy_mtime(metadata: &Metadata, src: &Path, dest: &Path) -> Result<()> {
 fn copy_ownership(metadata: &Metadata, dest: &Path) -> Result<()> {
 	let mode = metadata.permissions().mode();
 	let permissions = Permissions::from_mode(mode);
-	std::fs::set_permissions(dest, permissions).with_context(add_err("could not set permissions", dest))?;
+	std::fs::set_permissions(dest, permissions).src("could not set permissions", dest)?;
 
 	let uid = metadata.uid();
 	let gid = metadata.gid();
 
 	// Note: This requires elevated privileges (root) to work in most cases
 	// We'll attempt it but won't fail if it doesn't work
-	let dest_cstring = std::ffi::CString::new(dest.to_string_lossy().as_bytes()).with_context(add_err("invalid string", dest))?;
+	let dest_cstring = std::ffi::CString::new(dest.to_string_lossy().as_bytes()).src("invalid string", dest)?;
 
 	unsafe {
 		let result = libc::chown(dest_cstring.as_ptr(), uid, gid);
@@ -59,7 +55,7 @@ fn copy_ownership(metadata: &Metadata, dest: &Path) -> Result<()> {
 			// Only return error if it's not a permission issue
 			// (EPERM = 1, EACCES = 13)
 			if err.raw_os_error() != Some(1) && err.raw_os_error() != Some(13) {
-				return Err(err).with_context(add_err("could not set ownership", dest))?;
+				return Err(err).src("could not set ownership", dest)?;
 			}
 		}
 	}
@@ -72,7 +68,7 @@ fn copy_xattr(src: &Path, dest: &Path) -> Result<()> {
 		Ok(attrs) => attrs,
 		Err(e) => {
 			if e.kind() != std::io::ErrorKind::Unsupported {
-				return Err(e).with_context(add_err("could not set xattr", dest))?;
+				return Err(e).src("could not set xattr", dest)?;
 			}
 
 			return Ok(());

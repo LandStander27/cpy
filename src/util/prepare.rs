@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{args::Args, index::DirTask, util::log::add_err};
+use crate::{args::Args, index::DirTask, util::log::WrapErrExt};
 
 #[allow(unused)]
 use {
@@ -16,10 +16,7 @@ pub fn prepare_paths(args: &Args) -> Result<(Vec<PathBuf>, PathBuf)> {
 		.src
 		.iter()
 		.map(Path::new)
-		.map(|x| {
-			x.canonicalize()
-				.with_context(add_err("could not canonicalize path", x))
-		})
+		.map(|x| x.canonicalize().src("could not canonicalize path", x))
 		.collect::<Result<Vec<PathBuf>>>()?;
 
 	let dest = PathBuf::from(&args.dest);
@@ -37,9 +34,9 @@ pub fn create_directories(dirs: &[DirTask]) -> Result<()> {
 			Ok(()) => {}
 			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
 			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-				std::fs::create_dir_all(&dir.dest).with_context(add_err("could not create directory", &dir.src))?;
+				std::fs::create_dir_all(&dir.dest).src("could not create directory", &dir.src)?;
 			}
-			Err(e) => return Err(e).with_context(add_err("could not create directory", &dir.src))?,
+			Err(e) => return Err(e).src("could not create directory", &dir.src)?,
 		}
 	}
 

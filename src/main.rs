@@ -1,11 +1,9 @@
-use std::{path::Path, sync::atomic::Ordering};
-
 use clap::Parser;
 
 use crate::{
 	args::Args,
 	options::Options,
-	util::{log::add_err, prepare::create_directories, progress::ProgressBar},
+	util::{prepare::create_directories, progress::ProgressBar},
 };
 
 #[allow(unused)]
@@ -26,7 +24,12 @@ mod util;
 mod verify;
 
 fn main() -> Result<std::process::ExitCode> {
-	color_eyre::install().with_context(|| "could not install eyre")?;
+	let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::default().into_hooks();
+	eyre_hook.install()?;
+	std::panic::set_hook(Box::new(move |pi| {
+		error!("{}", panic_hook.panic_report(pi));
+	}));
+
 	let args = Args::parse();
 
 	let multibar = match util::log::init(args.verbose) {

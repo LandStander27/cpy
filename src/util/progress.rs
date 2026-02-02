@@ -85,6 +85,7 @@ impl ProgressBar {
 		} else {
 			self.pb.finish_and_clear();
 		}
+		// self.pb.tick();
 		multibar.remove(&self.pb);
 	}
 }

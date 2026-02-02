@@ -14,6 +14,36 @@ use {
 	log::{debug, error, info, trace, warn},
 };
 
+fn format_src(msg: &str, path: &Path) -> String {
+	let mut s = String::new();
+	s.push_str(msg);
+	s.push_str(": `{");
+	s.push_str(&path.display().to_string());
+	s.push_str("}`");
+	return s;
+}
+
+pub trait ContextCompatExt<T> {
+	fn src(self, msg: &str, path: &Path) -> std::result::Result<T, color_eyre::eyre::Report>;
+}
+
+impl<T, R: color_eyre::eyre::ContextCompat<T>> ContextCompatExt<T> for R {
+	fn src(self, msg: &str, path: &Path) -> std::result::Result<T, color_eyre::eyre::Report> {
+		return self.with_context(|| format_src(msg, path));
+	}
+}
+
+pub trait WrapErrExt<T, E> {
+	fn src(self, msg: &str, path: &Path) -> std::result::Result<T, color_eyre::eyre::Report>;
+}
+
+impl<T, E, R: color_eyre::eyre::WrapErr<T, E>> WrapErrExt<T, E> for R {
+	fn src(self, msg: &str, path: &Path) -> std::result::Result<T, color_eyre::eyre::Report> {
+		return self.with_context(|| format_src(msg, path));
+		// .with_section(|| path.display().to_string().header("File"));
+	}
+}
+
 #[macro_export]
 macro_rules! print_error {
 	($err:expr, $verbose:expr) => {{
@@ -23,10 +53,6 @@ macro_rules! print_error {
 			error!("{:?}", $err);
 		}
 	}};
-}
-
-pub fn add_err<'a>(s: &'a str, path: &'a Path) -> impl FnOnce() -> String + 'a {
-	return move || format!("{s}: {}", path.display());
 }
 
 pub fn init(verbose: u8) -> Result<MultiProgress> {
