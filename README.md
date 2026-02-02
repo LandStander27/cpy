@@ -33,21 +33,30 @@ sudo pacman -S cpy-git
 ```sh
 # Install deps
 ## Arch Linux
-sudo pacman -S --needed git rust sed libgit2
+sudo pacman -S --needed git rust sed libgit2 gzip
 
 # Clone the repo
 git clone https://codeberg.org/Land/autoclicker.git
 cd autoclicker
+
+# Create zsh shell completion + manpage
+cargo b --locked --release --features=generators
+./target/release/cpy . . --generate-man cpy.1 --generate-shell zsh > _cpy
+gzip cpy.1
 
 # Build cpy
 cargo b --release
 
 # Install binary and license file
 sudo install -Dm755 "target/release/cpy" "/usr/bin/cpy"
+
+# Install LICENSE, zsh completions, and manpage
 sudo install -Dm644 "LICENSE" -t "/usr/share/licenses/cpy/"
+sudo install -Dm644 "_cpy" -t "/usr/share/zsh/site-functions/"
+sudo install -Dm644 "cpy.1.gz" -t "/usr/share/man/man1/"
 
 # Optional cleanup
-sudo pacman -Rs git rust sed libgit2
+sudo pacman -Rs git rust sed libgit2 gzip
 ```
 
 ## 🛠️ Options
