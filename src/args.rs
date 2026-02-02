@@ -53,11 +53,11 @@ pub struct Args {
 
 	#[cfg(feature = "generators")]
 	#[arg(long = "generate-man")]
-	generate_man: String,
+	pub generate_man: String,
 
 	#[cfg(feature = "generators")]
 	#[arg(value_enum, long = "generate-shell")]
-	generate_shell: clap_complete::Shell,
+	pub generate_shell: clap_complete::Shell,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Default)]
