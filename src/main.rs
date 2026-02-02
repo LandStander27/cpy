@@ -102,7 +102,10 @@ fn main() -> Result<std::process::ExitCode> {
 		} else {
 			ProgressBar::new_ticker(&multibar, "Creating directories", None)
 		};
-		if let Err(e) = create_directories(&index.dirs) {
+
+		if !options.dry_run
+			&& let Err(e) = create_directories(&index.dirs)
+		{
 			print_error!(e, args.verbose);
 			return Ok(1.into());
 		}

@@ -89,6 +89,17 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 
 	info!("{} -> {}", src.display(), dest.display());
 
+	if options.dry_run {
+		options.pb.inc(file_size);
+
+		let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
+		options
+			.pb
+			.set_message(format!("copying: {}/{} files", completed, total_files));
+
+		return Ok(());
+	}
+
 	if options.reflink != ReflinkMode::Never && reflink(src, dest, file_size, completed_files, total_files, options)? {
 		return Ok(());
 	}

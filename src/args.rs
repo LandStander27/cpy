@@ -25,6 +25,9 @@ pub struct Args {
 	#[arg(short, long, help = "hide progress bar (recommended with --verbose)")]
 	pub quiet: bool,
 
+	#[arg(long, help = "do not perform any copy operations")]
+	pub dry_run: bool,
+
 	#[arg(short, visible_short_alias = 'R', long, help = "copy directories recursively")]
 	pub recursive: bool,
 
@@ -79,6 +82,7 @@ impl Default for Args {
 			threads: 4,
 			update: false,
 			verbose: 0,
+			dry_run: false,
 		};
 
 		#[cfg(feature = "generators")]
