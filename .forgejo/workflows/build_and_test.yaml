@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  push:
+    branches: [ "master" ]
+    paths:
+      - "**"
+      - "!README.md"
+      - "!.gitignore"
+      - "!LICENSE"
+      - "!hooks"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: docker
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install deps
+        run: pacman --noconfirm --needed -Syu git nodejs glib2 glibc rust sed libgit2
+
+      - uses: actions/checkout@v4
+      - name: Build binary
+        run: cargo b --release
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Upload binary
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: cpy
+          path: target/release/cpy

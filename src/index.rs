@@ -185,3 +185,88 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 
 	return Ok(());
 }
+
+#[cfg(test)]
+mod tests {
+	use std::sync::{Arc, atomic::AtomicBool};
+
+	use super::*;
+	use crate::{args::Args, util::progress::ProgressBar};
+	use indicatif::MultiProgress;
+	use tempfile::TempDir;
+
+	fn create_file(path: &Path) {
+		if let Some(parent) = path.parent() {
+			std::fs::create_dir_all(parent).unwrap();
+		}
+		std::fs::write(path, "test\n").unwrap();
+	}
+
+	#[test]
+	fn test_indexing() {
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a.txt");
+		let b = temp.path().join("b.txt");
+		let c = temp.path().join("c");
+		let a2 = temp.path().join("c/a.txt");
+		let d = temp.path().join("c/d");
+		let b2 = temp.path().join("c/d/b.txt");
+		let dest = temp.path().join("dest");
+
+		create_file(&a);
+		create_file(&b);
+		std::fs::create_dir_all(&c).unwrap();
+		create_file(&a2);
+		std::fs::create_dir_all(&d).unwrap();
+		create_file(&b2);
+		std::fs::create_dir_all(&dest).unwrap();
+
+		let multibar = MultiProgress::new();
+		let args = Args {
+			recursive: false,
+			..Default::default()
+		};
+
+		let mut options = Options::new(&args, &dest, multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
+
+		let index = index(&[a, b, c], dest, &mut options);
+
+		assert_eq!(index.files.len(), 2);
+		assert_eq!(index.dirs.len(), 1);
+		assert_eq!(index.total_files, 2);
+	}
+
+	#[test]
+	fn test_recursive_indexing() {
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a.txt");
+		let b = temp.path().join("b.txt");
+		let c = temp.path().join("c");
+		let a2 = temp.path().join("c/a.txt");
+		let d = temp.path().join("c/d");
+		let b2 = temp.path().join("c/d/b.txt");
+		let dest = temp.path().join("dest");
+
+		create_file(&a);
+		create_file(&b);
+		std::fs::create_dir_all(&c).unwrap();
+		create_file(&a2);
+		std::fs::create_dir_all(&d).unwrap();
+		create_file(&b2);
+		std::fs::create_dir_all(&dest).unwrap();
+
+		let multibar = MultiProgress::new();
+		let args = Args {
+			recursive: true,
+			..Default::default()
+		};
+
+		let mut options = Options::new(&args, &dest, multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
+
+		let index = index(&[a, b, c], dest, &mut options);
+
+		assert_eq!(index.files.len(), 4);
+		assert_eq!(index.dirs.len(), 2);
+		assert_eq!(index.total_files, 4);
+	}
+}

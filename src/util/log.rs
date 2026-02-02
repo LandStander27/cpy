@@ -74,3 +74,13 @@ pub fn init(verbose: u8) -> Result<MultiProgress> {
 
 	return Ok(multibar);
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_format_src() {
+		assert_eq!(format_src("some error", Path::new("/home")), "some error: `/home`");
+	}
+}

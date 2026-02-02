@@ -9,7 +9,7 @@ use {
 	log::{debug, error, info, trace, warn},
 };
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Clone, Default)]
 #[command(name = "cpy", disable_help_flag = true, disable_version_flag = true, version = version::version)]
 #[command(about = "cp but better (hopefully)", long_about = None)]
 pub struct Args {
@@ -37,7 +37,12 @@ pub struct Args {
 	#[arg(short, long, help = "ignore files with destinations that already exist")]
 	pub update: bool,
 
-	#[arg(long, help = "copy files as CoW copies. see https://btrfs.readthedocs.io/en/latest/Reflink.html", default_value = "auto")]
+	#[arg(
+		long,
+		help = "copy files as CoW copies. see https://btrfs.readthedocs.io/en/latest/Reflink.html",
+		default_value = "auto",
+		value_name = "MODE"
+	)]
 	pub reflink: ReflinkMode,
 
 	#[arg(help = "sources to copy", required = true)]
@@ -47,10 +52,12 @@ pub struct Args {
 	pub dest: String,
 }
 
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq)]
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Default)]
 pub enum ReflinkMode {
 	Never,
 	Always,
+
+	#[default]
 	Auto,
 }
 
@@ -62,5 +69,18 @@ fn over_0(s: &str) -> Result<usize, String> {
 		Ok(num)
 	} else {
 		Err("--threads must be >0".to_string())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_over_0() {
+		assert_eq!(over_0("0"), Err("--threads must be >0".to_string()));
+		assert_eq!(over_0("1"), Ok(1));
+		assert_eq!(over_0("-1"), Err("`-1` is not a valid usize".to_string()));
+		assert_eq!(over_0("awd"), Err("`awd` is not a valid usize".to_string()));
 	}
 }

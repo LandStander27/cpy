@@ -42,3 +42,20 @@ pub fn create_directories(dirs: &[DirTask]) -> Result<()> {
 
 	return Ok(());
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_canonicalize_cwd() {
+		let (src, _) = prepare_paths(&Args {
+			src: vec![".".to_string()],
+			dest: "/".to_string(),
+			..Default::default()
+		})
+		.unwrap();
+
+		assert_eq!(src.first(), Some(&std::env::current_dir().unwrap()));
+	}
+}

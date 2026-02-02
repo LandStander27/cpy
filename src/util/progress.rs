@@ -13,11 +13,19 @@ use {
 
 #[derive(Clone)]
 pub struct ProgressBar {
-	pub pb: indicatif::ProgressBar,
-	pub last_update: Instant,
+	pb: Option<indicatif::ProgressBar>,
+	last_update: Instant,
 }
 
 impl ProgressBar {
+	#[cfg(test)]
+	pub fn new_dummy() -> Self {
+		return Self {
+			pb: None,
+			last_update: Instant::now(),
+		};
+	}
+
 	pub fn new_bar(multibar: &MultiProgress, total: u64, init_msg: Option<String>) -> Self {
 		let ticker = multibar.add(
 			indicatif::ProgressBar::new(total).with_style(
@@ -34,7 +42,7 @@ impl ProgressBar {
 		}
 
 		return Self {
-			pb: ticker,
+			pb: Some(ticker),
 			last_update: Instant::now(),
 		};
 	}
@@ -49,43 +57,55 @@ impl ProgressBar {
 		}
 
 		return Self {
-			pb: ticker,
+			pb: Some(ticker),
 			last_update: Instant::now(),
 		};
 	}
 
 	#[inline]
 	pub fn inc(&self, len: u64) {
-		self.pb.inc(len);
+		if let Some(ref pb) = self.pb {
+			pb.inc(len);
+		}
 	}
 
 	#[inline]
 	pub fn set_message(&self, s: String) {
-		self.pb.set_message(s);
+		if let Some(ref pb) = self.pb {
+			pb.set_message(s);
+		}
 	}
 
 	#[inline]
 	pub fn debounce_set_message(&mut self, f: impl Fn() -> String) {
-		if self.last_update.elapsed().as_millis() >= 750 {
-			self.pb.set_message(f());
+		if let Some(ref pb) = self.pb
+			&& self.last_update.elapsed().as_millis() >= 750
+		{
+			pb.set_message(f());
 			self.last_update = Instant::now();
 		}
 	}
 
 	#[inline]
 	pub fn is_finished(&self) -> bool {
-		return self.pb.is_finished();
+		if let Some(ref pb) = self.pb {
+			return pb.is_finished();
+		}
+
+		return true;
 	}
 
 	#[inline]
 	pub fn finish(&self, multibar: &MultiProgress, msg: Option<String>) {
-		self.pb.disable_steady_tick();
-		if let Some(msg) = msg {
-			self.pb.finish_with_message(msg);
-		} else {
-			self.pb.finish_and_clear();
+		if let Some(ref pb) = self.pb {
+			pb.disable_steady_tick();
+			if let Some(msg) = msg {
+				pb.finish_with_message(msg);
+			} else {
+				pb.finish_and_clear();
+			}
+			// self.pb.tick();
+			multibar.remove(pb);
 		}
-		// self.pb.tick();
-		multibar.remove(&self.pb);
 	}
 }
