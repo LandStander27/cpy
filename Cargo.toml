@@ -3,10 +3,16 @@ name = "cpy"
 version = "0.0.0"
 edition = "2024"
 
+[features]
+default = []
+generators = ["dep:clap_complete", "dep:clap_mangen"]
+
 [dependencies]
 version = { "path" = "./version" }
 
 clap = { version = "4.5.56", features = ["derive"] }
+clap_complete = { version = "4.5.65", optional = true }
+clap_mangen = { version = "0.2.31", optional = true }
 color-eyre = "0.6.5"
 indicatif = "0.18.3"
 indicatif-log-bridge = "0.2.3"

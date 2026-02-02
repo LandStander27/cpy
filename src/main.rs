@@ -28,6 +28,20 @@ mod verify;
 fn main() -> Result<std::process::ExitCode> {
 	let args = Args::parse();
 
+	#[cfg(feature = "generators")]
+	{
+		use clap::CommandFactory;
+		let man = clap_mangen::Man::new(Args::command());
+		let mut buffer: Vec<u8> = Default::default();
+		man.render(&mut buffer).unwrap();
+		std::fs::write(args.generate_man, buffer).unwrap();
+
+		use clap_complete::{Generator, Shell, generate};
+		clap_complete::aot::generate(args.generate_shell, &mut Args::command(), Args::command().get_name().to_string(), &mut std::io::stdout());
+
+		return Ok(0.into());
+	}
+
 	let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::default().into_hooks();
 	eyre_hook.install()?;
 	std::panic::set_hook(Box::new(move |pi| {
