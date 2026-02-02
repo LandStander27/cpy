@@ -9,7 +9,7 @@ use {
 	log::{debug, error, info, trace, warn},
 };
 
-#[derive(Parser, Debug, Clone, Default)]
+#[derive(Parser, Debug, Clone)]
 #[command(name = "cpy", disable_help_flag = true, disable_version_flag = true, version = version::version)]
 #[command(about = "cp but better (hopefully)", long_about = None)]
 pub struct Args {
@@ -58,6 +58,24 @@ pub struct Args {
 	#[cfg(feature = "generators")]
 	#[arg(value_enum, long = "generate-shell")]
 	pub generate_shell: clap_complete::Shell,
+}
+
+impl Default for Args {
+	fn default() -> Self {
+		return Self {
+			archive: false,
+			dest: "".to_string(),
+			force: false,
+			help: (),
+			version: (),
+			recursive: false,
+			reflink: ReflinkMode::default(),
+			src: Vec::new(),
+			threads: 4,
+			update: false,
+			verbose: 0,
+		};
+	}
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Default)]
