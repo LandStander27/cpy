@@ -62,6 +62,7 @@ pub struct Args {
 
 impl Default for Args {
 	fn default() -> Self {
+		#[cfg(not(feature = "generators"))]
 		return Self {
 			archive: false,
 			dest: "".to_string(),
@@ -75,6 +76,9 @@ impl Default for Args {
 			update: false,
 			verbose: 0,
 		};
+
+		#[cfg(feature = "generators")]
+		unreachable!();
 	}
 }
 
