@@ -75,7 +75,11 @@ fn main() -> Result<std::process::ExitCode> {
 	}
 
 	trace!("indexing sources");
-	let ticker = ProgressBar::new_ticker(&multibar, "Indexing sources", None);
+	let ticker = if args.quiet {
+		ProgressBar::new_dummy()
+	} else {
+		ProgressBar::new_ticker(&multibar, "Indexing sources", None)
+	};
 	let abort = match signal::signal_handler() {
 		Ok(o) => o,
 		Err(e) => {
@@ -93,7 +97,11 @@ fn main() -> Result<std::process::ExitCode> {
 	}
 
 	if !index.dirs.is_empty() {
-		let ticker = ProgressBar::new_ticker(&multibar, "Creating directories", None);
+		let ticker = if args.quiet {
+			ProgressBar::new_dummy()
+		} else {
+			ProgressBar::new_ticker(&multibar, "Creating directories", None)
+		};
 		if let Err(e) = create_directories(&index.dirs) {
 			print_error!(e, args.verbose);
 			return Ok(1.into());
@@ -107,7 +115,7 @@ fn main() -> Result<std::process::ExitCode> {
 	}
 
 	// 5 MB
-	let pb = if index.total_files == 1 && index.total_size <= 1024 * 1024 * 1024 * 5 {
+	let pb = if args.quiet || (index.total_files == 1 && index.total_size <= 1024 * 1024 * 1024 * 5) {
 		ProgressBar::new_dummy()
 	} else {
 		ProgressBar::new_bar(&multibar, index.total_size, Some(format!("copying: 0/{} files", index.total_files)))

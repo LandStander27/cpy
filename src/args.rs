@@ -19,8 +19,11 @@ pub struct Args {
 	#[arg(long, help = "print version", action = clap::builder::ArgAction::Version)]
 	pub version: (),
 
-	#[arg(short, long, help = "increase verbosity (-v: info, -vv: debug, -vvv: trace, -vvvv: trace, more detailed errors)", action = clap::ArgAction::Count)]
+	#[arg(short, long, help = "increase verbosity, which can slow down copying significantly if --quiet is not supplied (-v: info, -vv: debug, -vvv: trace, -vvvv: trace, more detailed errors)", action = clap::ArgAction::Count)]
 	pub verbose: u8,
+
+	#[arg(short, long, help = "hide progress bar (recommended with --verbose)")]
+	pub quiet: bool,
 
 	#[arg(short, visible_short_alias = 'R', long, help = "copy directories recursively")]
 	pub recursive: bool,
@@ -72,6 +75,7 @@ impl Default for Args {
 			recursive: false,
 			reflink: ReflinkMode::default(),
 			src: Vec::new(),
+			quiet: false,
 			threads: 4,
 			update: false,
 			verbose: 0,

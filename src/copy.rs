@@ -74,7 +74,7 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 		}
 	}
 
-	info!("copied {} files", completed_files.load(Ordering::Relaxed));
+	// info!("copied {} files", completed_files.load(Ordering::Relaxed));
 	options
 		.pb
 		.finish(&options.multibar, Some(format!("copied {} files successfully", completed_files.load(Ordering::Relaxed))));
@@ -87,7 +87,7 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 		return Ok(());
 	}
 
-	trace!("{} -> {}", src.display(), dest.display());
+	info!("{} -> {}", src.display(), dest.display());
 
 	if options.reflink != ReflinkMode::Never && reflink(src, dest, file_size, completed_files, total_files, options)? {
 		return Ok(());

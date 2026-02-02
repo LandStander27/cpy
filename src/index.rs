@@ -76,7 +76,7 @@ pub fn index(src: &[PathBuf], dest: PathBuf, options: &mut Options) -> Index {
 		}
 
 		if options.abort.load(Ordering::Relaxed) {
-			info!("operation aborted");
+			// info!("operation aborted");
 			break;
 		}
 	}
@@ -140,7 +140,6 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 		.follow_links(false)
 	{
 		if options.abort.load(Ordering::Relaxed) {
-			info!("operation aborted");
 			break;
 		}
 
