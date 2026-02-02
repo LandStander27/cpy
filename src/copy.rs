@@ -20,6 +20,7 @@ use {
 };
 
 use crate::{
+	args::ReflinkMode,
 	index::Index,
 	options::Options,
 	print_error,
@@ -47,7 +48,6 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 	for res in results.into_iter() {
 		if let Err(e) = res {
 			errors.push(e);
-			// print_error!(e, options.verbose);
 		}
 	}
 
@@ -88,6 +88,10 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 	}
 
 	trace!("{} -> {}", src.display(), dest.display());
+
+	if options.reflink != ReflinkMode::Never {
+		return reflink(src, dest, file_size, completed_files, total_files, options);
+	}
 
 	let mut src_file = File::open(src).src("could not open file read-only", src)?;
 	let dest_file = match File::create_new(dest).src("could not open file write-only", dest) {
@@ -170,6 +174,39 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 	options
 		.pb
 		.set_message(format!("copying: {}/{} files", completed, total_files));
+
+	return Ok(());
+}
+
+fn reflink(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<AtomicUsize>, total_files: u64, options: &Options) -> Result<()> {
+	if dest.try_exists().unwrap_or(false) {
+		if options.force && options.reflink == ReflinkMode::Always {
+			std::fs::remove_file(dest).src("could not delete file", dest)?;
+		} else {
+			return Ok(());
+		}
+	}
+
+	match reflink_copy::reflink(src, dest) {
+		Ok(()) => {
+			options.pb.inc(file_size);
+			if options.archive {
+				copy_attributes(src, dest).src("could not copy file attributes", src)?;
+			}
+
+			let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
+			options
+				.pb
+				.set_message(format!("copying: {}/{} files", completed, total_files));
+		}
+		Err(e) if options.reflink == ReflinkMode::Always => {
+			return Err(e).src("reflink failed", src)?;
+		}
+		Err(_) => {
+			trace!("auto reflink failed");
+			return Ok(());
+		}
+	}
 
 	return Ok(());
 }

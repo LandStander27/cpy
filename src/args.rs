@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 
 #[allow(unused)]
 use {
@@ -37,11 +37,21 @@ pub struct Args {
 	#[arg(short, long, help = "ignore files with destinations that already exist")]
 	pub update: bool,
 
+	#[arg(long, help = "copy files as CoW copies. see https://btrfs.readthedocs.io/en/latest/Reflink.html", default_value = "auto")]
+	pub reflink: ReflinkMode,
+
 	#[arg(help = "sources to copy", required = true)]
 	pub src: Vec<String>,
 
 	#[arg(help = "destination", required = true)]
 	pub dest: String,
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq)]
+pub enum ReflinkMode {
+	Never,
+	Always,
+	Auto,
 }
 
 fn over_0(s: &str) -> Result<usize, String> {

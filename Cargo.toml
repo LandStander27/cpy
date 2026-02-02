@@ -18,7 +18,7 @@ rayon = "1.11.0"
 nix = "0.31.1"
 filetime = "0.2.27"
 xattr = "1.6.1"
-# reflink-copy = "0.1.28"
+reflink-copy = "0.1.28"
 
 [lints.clippy]
 needless_return = "allow"

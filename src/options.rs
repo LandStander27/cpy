@@ -5,7 +5,10 @@ use std::{
 
 use indicatif::MultiProgress;
 
-use crate::{args::Args, util::progress::ProgressBar};
+use crate::{
+	args::{Args, ReflinkMode},
+	util::progress::ProgressBar,
+};
 
 pub struct Options {
 	pub verbose: u8,
@@ -15,6 +18,7 @@ pub struct Options {
 	pub threads: usize,
 	pub force: bool,
 	pub update: bool,
+	pub reflink: ReflinkMode,
 	pub pb: ProgressBar,
 	pub multibar: MultiProgress,
 	pub abort: Arc<AtomicBool>,
@@ -30,6 +34,7 @@ impl Options {
 			threads: args.threads,
 			force: args.force,
 			update: args.update,
+			reflink: args.reflink,
 			multibar,
 			pb,
 			abort,

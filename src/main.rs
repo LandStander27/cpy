@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use clap::Parser;
 
 use crate::{
@@ -24,13 +26,13 @@ mod util;
 mod verify;
 
 fn main() -> Result<std::process::ExitCode> {
+	let args = Args::parse();
+
 	let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::default().into_hooks();
 	eyre_hook.install()?;
 	std::panic::set_hook(Box::new(move |pi| {
 		error!("{}", panic_hook.panic_report(pi));
 	}));
-
-	let args = Args::parse();
 
 	let multibar = match util::log::init(args.verbose) {
 		Ok(o) => o,
@@ -69,6 +71,10 @@ fn main() -> Result<std::process::ExitCode> {
 	let index = index::index(&src, dest, &mut options);
 	ticker.finish(&multibar, None);
 
+	if options.abort.load(Ordering::Relaxed) {
+		return Ok(130.into());
+	}
+
 	if !index.dirs.is_empty() {
 		let ticker = ProgressBar::new_ticker(&multibar, "Creating directories", None);
 		if let Err(e) = create_directories(&index.dirs) {
@@ -77,6 +83,10 @@ fn main() -> Result<std::process::ExitCode> {
 		}
 
 		ticker.finish(&multibar, None);
+
+		if options.abort.load(Ordering::Relaxed) {
+			return Ok(130.into());
+		}
 	}
 
 	let pb = ProgressBar::new_bar(&multibar, index.total_size, Some(format!("copying: 0/{} files", index.total_files)));
@@ -85,6 +95,10 @@ fn main() -> Result<std::process::ExitCode> {
 	if let Err(e) = copy::copy(&index, &options) {
 		print_error!(e, options.verbose);
 		return Ok(1.into());
+	}
+
+	if options.abort.load(Ordering::Relaxed) {
+		return Ok(130.into());
 	}
 
 	return Ok(0.into());
