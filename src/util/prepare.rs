@@ -1,6 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::{
+	path::{Path, PathBuf},
+	sync::atomic::Ordering,
+};
 
-use crate::{args::Args, index::DirTask, util::log::WrapErrExt};
+use crate::{args::Args, index::DirTask, options::Options, util::log::WrapErrExt};
 
 #[allow(unused)]
 use {
@@ -24,12 +27,16 @@ pub fn prepare_paths(args: &Args) -> Result<(Vec<PathBuf>, PathBuf)> {
 	return Ok((src, dest));
 }
 
-pub fn create_directories(dirs: &[DirTask]) -> Result<()> {
+pub fn create_directories(dirs: &[DirTask], options: &Options) -> Result<()> {
 	let mut dirs: Vec<&DirTask> = dirs.iter().collect();
 	dirs.sort_unstable_by_key(|d| d.dest.components().count());
 	dirs.dedup_by_key(|d| &d.dest);
 
 	for dir in &dirs {
+		if options.abort.load(Ordering::Relaxed) {
+			return Ok(());
+		}
+
 		match std::fs::create_dir(&dir.dest) {
 			Ok(()) => {}
 			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}

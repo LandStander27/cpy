@@ -7,7 +7,7 @@ use clap::Parser;
 use crate::{
 	args::Args,
 	options::Options,
-	util::{prepare::create_directories, progress::ProgressBar},
+	util::{exclude::ExcludeRules, prepare::create_directories, progress::ProgressBar},
 };
 
 #[allow(unused)]
@@ -69,6 +69,15 @@ fn main() -> Result<std::process::ExitCode> {
 		}
 	};
 
+	trace!("compiling regexes");
+	let rules = match ExcludeRules::compile(&args.exclude, args.verbose) {
+		Ok(o) => o,
+		Err(e) => {
+			print_error!(e, args.verbose);
+			return Ok(1.into());
+		}
+	};
+
 	trace!("verifying sources");
 	if !verify::verify_sources(&src, &dest, &args) {
 		return Ok(1.into());
@@ -78,7 +87,7 @@ fn main() -> Result<std::process::ExitCode> {
 	let ticker = if args.quiet {
 		ProgressBar::new_dummy()
 	} else {
-		ProgressBar::new_ticker(&multibar, "Indexing sources", None)
+		ProgressBar::new_ticker(&multibar, "indexing sources", None)
 	};
 	let abort = match signal::signal_handler() {
 		Ok(o) => o,
@@ -88,7 +97,7 @@ fn main() -> Result<std::process::ExitCode> {
 		}
 	};
 
-	let mut options = Options::new(&args, &dest, multibar.clone(), ticker.clone(), abort);
+	let mut options = Options::new(&args, &dest, rules, multibar.clone(), ticker.clone(), abort);
 	let index = index::index(&src, dest, &mut options);
 	ticker.finish(&multibar, None);
 
@@ -97,14 +106,15 @@ fn main() -> Result<std::process::ExitCode> {
 	}
 
 	if !index.dirs.is_empty() {
+		trace!("creating dirs");
 		let ticker = if args.quiet {
 			ProgressBar::new_dummy()
 		} else {
-			ProgressBar::new_ticker(&multibar, "Creating directories", None)
+			ProgressBar::new_ticker(&multibar, "creating directories", None)
 		};
 
 		if !options.dry_run
-			&& let Err(e) = create_directories(&index.dirs)
+			&& let Err(e) = create_directories(&index.dirs, &options)
 		{
 			print_error!(e, args.verbose);
 			return Ok(1.into());
@@ -125,6 +135,7 @@ fn main() -> Result<std::process::ExitCode> {
 	};
 	options.pb = pb;
 
+	trace!("copying");
 	if let Err(e) = copy::copy(&index, &options) {
 		print_error!(e, options.verbose);
 		return Ok(1.into());

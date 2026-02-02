@@ -29,6 +29,20 @@ use crate::{
 
 pub fn copy(index: &Index, options: &Options) -> Result<()> {
 	let completed_files = Arc::new(AtomicUsize::new(0));
+	if !index.symlinks.is_empty() {
+		for link in &index.symlinks {
+			if !options.dry_run {
+				std::os::unix::fs::symlink(&link.target, &link.dest).src("could not create symlink", &link.dest)?;
+			}
+
+			let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
+			options
+				.pb
+				.set_message(format!("copying: {}/{} files", completed, index.total_files));
+		}
+
+		debug!("created {} symlink(s)", index.symlinks.len());
+	}
 
 	let pool = rayon::ThreadPoolBuilder::new()
 		.num_threads(options.threads)

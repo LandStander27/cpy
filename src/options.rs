@@ -7,7 +7,7 @@ use indicatif::MultiProgress;
 
 use crate::{
 	args::{Args, ReflinkMode},
-	util::progress::ProgressBar,
+	util::{exclude::ExcludeRules, progress::ProgressBar},
 };
 
 pub struct Options {
@@ -19,6 +19,7 @@ pub struct Options {
 	pub force: bool,
 	pub update: bool,
 	pub dry_run: bool,
+	pub exclude_rules: ExcludeRules,
 	pub reflink: ReflinkMode,
 	pub pb: ProgressBar,
 	pub multibar: MultiProgress,
@@ -26,7 +27,7 @@ pub struct Options {
 }
 
 impl Options {
-	pub fn new(args: &Args, dest: &Path, multibar: MultiProgress, pb: ProgressBar, abort: Arc<AtomicBool>) -> Self {
+	pub fn new(args: &Args, dest: &Path, exclude_rules: ExcludeRules, multibar: MultiProgress, pb: ProgressBar, abort: Arc<AtomicBool>) -> Self {
 		return Self {
 			verbose: args.verbose,
 			recursive: args.recursive,
@@ -37,6 +38,7 @@ impl Options {
 			update: args.update,
 			reflink: args.reflink,
 			dry_run: args.dry_run,
+			exclude_rules,
 			multibar,
 			pb,
 			abort,

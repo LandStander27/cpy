@@ -255,6 +255,7 @@ dependencies = [
  "nix",
  "rayon",
  "reflink-copy",
+ "regex",
  "signal-hook",
  "tempfile",
  "version",

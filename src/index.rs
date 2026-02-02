@@ -24,6 +24,7 @@ use {
 #[derive(Debug)]
 pub struct Index {
 	pub files: Vec<FileTask>,
+	pub symlinks: Vec<SymlinkTask>,
 	pub dirs: Vec<DirTask>,
 	pub total_size: u64,
 	pub total_files: u64,
@@ -35,6 +36,7 @@ impl Default for Index {
 			total_files: 0,
 			total_size: 0,
 			files: Vec::new(),
+			symlinks: Vec::new(),
 			dirs: Vec::new(),
 		};
 	}
@@ -43,6 +45,10 @@ impl Default for Index {
 impl Index {
 	fn add_file(&mut self, task: FileTask) {
 		self.files.push(task);
+	}
+
+	fn add_symlink(&mut self, task: SymlinkTask) {
+		self.symlinks.push(task);
 	}
 
 	fn add_directory(&mut self, task: DirTask) {
@@ -55,6 +61,12 @@ pub struct FileTask {
 	pub src: PathBuf,
 	pub dest: PathBuf,
 	pub size: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct SymlinkTask {
+	pub target: PathBuf,
+	pub dest: PathBuf,
 }
 
 #[derive(Debug, Clone)]
@@ -99,7 +111,15 @@ fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &mut Options,
 		.pb
 		.debounce_set_message(|| src.display().to_string());
 
-	let metadata = src.metadata().src("could not get file metadata", src)?;
+	if options.exclude_rules.matches(src) {
+		return Ok(());
+	}
+
+	let metadata = if src.is_symlink() {
+		std::fs::symlink_metadata(src).src("could not get file metadata", src)?
+	} else {
+		src.metadata().src("could not get file metadata", src)?
+	};
 
 	let dest_path = if is_top_level && options.dest_is_dir {
 		dest.join(src.file_name().src("could not get filename", src)?)
@@ -111,18 +131,30 @@ fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &mut Options,
 		return Ok(());
 	}
 
+	if metadata.is_symlink() {
+		let target = std::fs::read_link(src).src("could not read symbolic link", src)?;
+		index.add_symlink(SymlinkTask { target, dest: dest_path });
+
+		index.total_files += 1;
+		return Ok(());
+	}
+
 	index.add_file(FileTask {
 		src: src.to_path_buf(),
 		dest: dest_path,
 		size: metadata.size(),
 	});
-	index.total_files += 1;
 	index.total_size += metadata.size();
+	index.total_files += 1;
 
 	return Ok(());
 }
 
 fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Options) -> Result<()> {
+	if options.exclude_rules.matches(src) {
+		return Ok(());
+	}
+
 	let root_dest = dest.join(src.file_name().src("could not get filename", src)?);
 
 	index.add_directory(DirTask {
@@ -226,7 +258,7 @@ mod tests {
 			..Default::default()
 		};
 
-		let mut options = Options::new(&args, &dest, multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
+		let mut options = Options::new(&args, &dest, Default::default(), multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
 
 		let index = index(&[a, b, c], dest, &mut options);
 
@@ -260,7 +292,7 @@ mod tests {
 			..Default::default()
 		};
 
-		let mut options = Options::new(&args, &dest, multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
+		let mut options = Options::new(&args, &dest, Default::default(), multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
 
 		let index = index(&[a, b, c], dest, &mut options);
 

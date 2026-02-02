@@ -43,6 +43,9 @@ pub struct Args {
 	#[arg(short, long, help = "ignore files with destinations that already exist")]
 	pub update: bool,
 
+	#[arg(short, long, help = "exclude files with an absolute file path matching REGEX", value_name = "REGEX")]
+	pub exclude: Vec<String>,
+
 	#[arg(
 		long,
 		help = "copy files as CoW copies. see https://btrfs.readthedocs.io/en/latest/Reflink.html",
@@ -78,6 +81,7 @@ impl Default for Args {
 			recursive: false,
 			reflink: ReflinkMode::default(),
 			src: Vec::new(),
+			exclude: Vec::new(),
 			quiet: false,
 			threads: 4,
 			update: false,
