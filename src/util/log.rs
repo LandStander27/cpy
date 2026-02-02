@@ -17,9 +17,9 @@ use {
 fn format_src(msg: &str, path: &Path) -> String {
 	let mut s = String::new();
 	s.push_str(msg);
-	s.push_str(": `{");
+	s.push_str(": `");
 	s.push_str(&path.display().to_string());
-	s.push_str("}`");
+	s.push('`');
 	return s;
 }
 

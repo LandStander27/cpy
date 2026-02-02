@@ -107,6 +107,10 @@ fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &mut Options,
 		dest.to_path_buf()
 	};
 
+	if options.update && dest_path.exists() {
+		return Ok(());
+	}
+
 	index.add_file(FileTask {
 		src: src.to_path_buf(),
 		dest: dest_path,

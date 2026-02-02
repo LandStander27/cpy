@@ -34,6 +34,9 @@ pub struct Args {
 	#[arg(short, long, help = "if an existing destination file cannot be created, remove it and try again")]
 	pub force: bool,
 
+	#[arg(short, long, help = "ignore files with destinations that already exist")]
+	pub update: bool,
+
 	#[arg(help = "sources to copy", required = true)]
 	pub src: Vec<String>,
 

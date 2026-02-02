@@ -42,13 +42,42 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 			.collect()
 	});
 
+	let mut errors: Vec<color_eyre::Report> = Vec::new();
+
 	for res in results.into_iter() {
 		if let Err(e) = res {
-			print_error!(e, options.verbose);
+			errors.push(e);
+			// print_error!(e, options.verbose);
+		}
+	}
+
+	if options.abort.load(Ordering::Relaxed) {
+		let completed = completed_files.load(Ordering::Relaxed);
+
+		options.pb.finish(&options.multibar, None);
+		eprintln!("\ncompleted:  {} files", completed);
+		eprintln!("remaining:  {} files", index.total_files as usize - completed);
+
+		return Ok(());
+	}
+
+	if !errors.is_empty() {
+		options
+			.pb
+			.finish(&options.multibar, Some("completed with errors".to_string()));
+		eprintln!("\nfailed to copy {} file{}:", errors.len(), if errors.len() == 1 { "" } else { "s" });
+		for err in errors.iter().take(5) {
+			eprintln!("    {err:#}");
+		}
+		if errors.len() > 5 {
+			eprintln!("    ... and {} more", errors.len() - 5);
 		}
 	}
 
 	info!("copied {} files", completed_files.load(Ordering::Relaxed));
+	options
+		.pb
+		.finish(&options.multibar, Some(format!("copied {} files successfully", completed_files.load(Ordering::Relaxed))));
 
 	return Ok(());
 }
