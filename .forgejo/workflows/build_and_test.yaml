@@ -18,7 +18,7 @@ jobs:
       image: archlinux:latest
     steps:
       - name: Install deps
-        run: pacman --noconfirm --needed -Syu git nodejs glib2 glibc rust sed libgit2
+        run: pacman -Scc --noconfirm && pacman --noconfirm --needed -Syu git nodejs glib2 glibc rust sed libgit2
 
       - uses: actions/checkout@v4
       - name: Build binary
