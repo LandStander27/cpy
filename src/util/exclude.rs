@@ -20,12 +20,15 @@ pub struct ExcludeRules {
 }
 
 impl ExcludeRules {
-	pub fn compile(rules: &[String], verbose: u8) -> Result<Self> {
+	pub fn compile(rules: &[impl AsRef<str>], verbose: u8) -> Result<Self> {
 		let mut ret = Vec::new();
 		let mut errors = Vec::new();
 
 		for rule in rules {
-			let r = match RegexBuilder::new(rule).case_insensitive(true).build() {
+			let r = match RegexBuilder::new(rule.as_ref())
+				.case_insensitive(true)
+				.build()
+			{
 				Ok(o) => o,
 				Err(e) => {
 					errors.push(eyre!("{e}"));
@@ -52,5 +55,16 @@ impl ExcludeRules {
 			.rules
 			.iter()
 			.any(|r| r.is_match(&path.display().to_string()));
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_excluding() {
+		let rules = ExcludeRules::compile(&["\\.png"], 0).unwrap();
+		assert!(rules.matches(Path::new("/home/user/picture.png")));
 	}
 }

@@ -56,20 +56,20 @@ impl Index {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileTask {
 	pub src: PathBuf,
 	pub dest: PathBuf,
 	pub size: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SymlinkTask {
 	pub target: PathBuf,
 	pub dest: PathBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DirTask {
 	pub src: PathBuf,
 	pub dest: PathBuf,
@@ -233,6 +233,13 @@ mod tests {
 		std::fs::write(path, "test\n").unwrap();
 	}
 
+	fn create_symlink(dest: &Path, target: &Path) {
+		if let Some(parent) = dest.parent() {
+			std::fs::create_dir_all(parent).unwrap();
+		}
+		std::os::unix::fs::symlink(target, dest).unwrap();
+	}
+
 	#[test]
 	fn test_indexing() {
 		let temp = TempDir::new().unwrap();
@@ -268,6 +275,44 @@ mod tests {
 	}
 
 	#[test]
+	fn test_symlink_indexing() {
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a.txt");
+		let b = temp.path().join("b.txt");
+		let c = temp.path().join("c");
+		let a2 = temp.path().join("c/a.txt");
+		let dest = temp.path().join("dest");
+
+		create_symlink(&a, &a2);
+		create_file(&b);
+		std::fs::create_dir_all(&c).unwrap();
+		create_file(&a2);
+
+		let multibar = MultiProgress::new();
+		let args = Args {
+			recursive: true,
+			..Default::default()
+		};
+
+		let mut options = Options::new(&args, &dest, Default::default(), multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
+
+		let index = index(&[a, b, c], dest.clone(), &mut options);
+
+		assert_eq!(index.files.len(), 2);
+		assert_eq!(index.symlinks.len(), 1);
+		assert_eq!(index.dirs.len(), 1);
+		assert_eq!(index.total_files, 3);
+
+		assert_eq!(
+			index.symlinks.first().unwrap(),
+			&SymlinkTask {
+				dest: dest.join("a.txt"),
+				target: a2,
+			}
+		);
+	}
+
+	#[test]
 	fn test_recursive_indexing() {
 		let temp = TempDir::new().unwrap();
 		let a = temp.path().join("a.txt");
@@ -294,10 +339,16 @@ mod tests {
 
 		let mut options = Options::new(&args, &dest, Default::default(), multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
 
-		let index = index(&[a, b, c], dest, &mut options);
+		let index = index(&[a, b, c], dest.clone(), &mut options);
 
 		assert_eq!(index.files.len(), 4);
 		assert_eq!(index.dirs.len(), 2);
 		assert_eq!(index.total_files, 4);
+
+		assert!(index.files.contains(&FileTask {
+			src: b2,
+			dest: dest.join("c/d/b.txt"),
+			size: 5
+		}));
 	}
 }

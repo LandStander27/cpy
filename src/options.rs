@@ -32,7 +32,7 @@ impl Options {
 			verbose: args.verbose,
 			recursive: args.recursive,
 			archive: args.archive,
-			dest_is_dir: dest.exists() && dest.is_dir(),
+			dest_is_dir: !dest.exists() || dest.is_dir(),
 			threads: args.threads,
 			force: args.force,
 			update: args.update,
