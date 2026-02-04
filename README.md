@@ -5,10 +5,14 @@
 **Your common `cp` but faster, modern, and hopefully better**
 
 ## ✨ Features
-- Progress bars
-- Made in Rust
-- Parallel copying
-- [Reflink/CoW](https://btrfs.readthedocs.io/en/latest/Reflink.html) support
+- Clear progress reporting with modern looking progress bars and loaders
+- Made in Rust, with it's memory safety features and all
+- Copying of files happens in multiple threads, parallel
+- Automatic [Reflink/CoW](https://btrfs.readthedocs.io/en/latest/Reflink.html) support if your filesystem supports it
+
+Non-goals:
+- 100% GNU `cp` parity
+- Strict POSIX complying
 
 ## 📦 Installation
 
@@ -28,7 +32,9 @@ sudo pacsync landware
 # Install like a normal package
 sudo pacman -S cpy-git
 ```
-> Note: it is recommended to run a full system update (via `pacman -Syu`) after syncing any repository
+#### Note
+- It is recommended to run a full system update (via `pacman -Syu`) after syncing any repository
+- Adding a new repository could be a security risk--if you do not trust me for any reason (which I would expect), do not add it. It is hosted directly on my server.
 
 ### 🔧 Manually
 ```sh
@@ -37,8 +43,8 @@ sudo pacman -S cpy-git
 sudo pacman -S --needed git rust sed libgit2 gzip
 
 # Clone the repo
-git clone https://codeberg.org/Land/autoclicker.git
-cd autoclicker
+git clone https://codeberg.org/Land/cpy.git
+cd cpy
 
 # Generate zsh shell completion + manpage
 cargo b --locked --release --features=generators

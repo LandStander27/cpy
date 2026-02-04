@@ -51,10 +51,12 @@ impl ExcludeRules {
 	}
 
 	pub fn matches(&self, path: &Path) -> bool {
-		return self
-			.rules
-			.iter()
-			.any(|r| r.is_match(&path.display().to_string()));
+		if self.rules.is_empty() {
+			return false;
+		}
+
+		let abs = path.display().to_string();
+		return self.rules.iter().any(|r| r.is_match(&abs));
 	}
 }
 

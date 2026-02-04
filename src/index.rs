@@ -205,6 +205,11 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 			}
 		};
 
+		if options.exclude_rules.matches(&abs) {
+			entry.read_children_path = None;
+			continue;
+		}
+
 		if options.one_file_system && metadata.dev() != root_device {
 			entry.read_children_path = None;
 			continue;
