@@ -84,6 +84,7 @@ Options:
   -u, --update             ignore files with destinations that already exist
   -e, --exclude <REGEX>    exclude files with an absolute file path matching REGEX
       --reflink <MODE>     copy files as CoW copies. see https://btrfs.readthedocs.io/en/latest/Reflink.html [default: auto] [possible values: never, always, auto]
+  -x, --one-file-system    stay on the same file system per SOURCE
 ```
 
 > Inspired by [cpx](https://github.com/11happy/cpx/tree/7ab459fcdd9b2e94d21105c1e6706a8445056bb4)

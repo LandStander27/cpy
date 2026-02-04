@@ -1,4 +1,5 @@
 use std::{
+	fs::Metadata,
 	os::unix::fs::MetadataExt,
 	path::{Path, PathBuf},
 	sync::atomic::Ordering,
@@ -83,7 +84,7 @@ pub fn index(src: &[PathBuf], dest: PathBuf, options: &mut Options) -> Index {
 			.pb
 			.debounce_set_message(|| src.display().to_string());
 
-		if let Err(e) = index_entry(src, &dest, &mut index, options) {
+		if let Err(e) = index_source(src, &dest, &mut index, options) {
 			print_error!(e, options.verbose);
 		}
 
@@ -96,30 +97,37 @@ pub fn index(src: &[PathBuf], dest: PathBuf, options: &mut Options) -> Index {
 	return index;
 }
 
-fn index_entry(src: &Path, dest: &Path, index: &mut Index, options: &mut Options) -> Result<()> {
+fn get_metadata(src: &Path) -> Result<Metadata> {
+	return if src.is_symlink() {
+		std::fs::symlink_metadata(src).src("could not stat", src)
+	} else {
+		src.metadata().src("could not stat", src)
+	};
+}
+
+fn index_source(src: &Path, dest: &Path, index: &mut Index, options: &mut Options) -> Result<()> {
 	if src.is_dir() {
 		index_directory(src, dest, index, options)?;
 	} else {
-		index_file(src, dest, index, options, true)?;
+		let metadata = get_metadata(src)?;
+		index_file(src, dest, index, options, &metadata, metadata.dev(), true)?;
 	}
 
 	return Ok(());
 }
 
-fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &mut Options, is_top_level: bool) -> Result<()> {
+fn index_file(src: &Path, dest: &Path, index: &mut Index, options: &mut Options, metadata: &Metadata, root_device: u64, is_top_level: bool) -> Result<()> {
 	options
 		.pb
 		.debounce_set_message(|| src.display().to_string());
 
-	if options.exclude_rules.matches(src) {
+	if !is_top_level && options.one_file_system && metadata.dev() != root_device {
 		return Ok(());
 	}
 
-	let metadata = if src.is_symlink() {
-		std::fs::symlink_metadata(src).src("could not get file metadata", src)?
-	} else {
-		src.metadata().src("could not get file metadata", src)?
-	};
+	if options.exclude_rules.matches(src) {
+		return Ok(());
+	}
 
 	let dest_path = if is_top_level && options.dest_is_dir {
 		dest.join(src.file_name().src("could not get filename", src)?)
@@ -166,6 +174,8 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 		return Ok(());
 	}
 
+	let root_device = get_metadata(src)?.dev();
+
 	for entry in WalkDir::new(src)
 		.skip_hidden(false)
 		.parallelism(jwalk::Parallelism::RayonNewPool(options.threads))
@@ -175,7 +185,7 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 			break;
 		}
 
-		let entry = match entry.src("could not read directory", src) {
+		let mut entry = match entry.src("could not read directory", src) {
 			Ok(o) => o,
 			Err(e) => {
 				print_error!(e, options.verbose);
@@ -184,6 +194,19 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 		};
 		let abs = entry.path();
 		if abs == src {
+			continue;
+		}
+
+		let metadata = match get_metadata(&abs) {
+			Ok(o) => o,
+			Err(e) => {
+				print_error!(e, options.verbose);
+				continue;
+			}
+		};
+
+		if options.one_file_system && metadata.dev() != root_device {
+			entry.read_children_path = None;
 			continue;
 		}
 
@@ -199,16 +222,9 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 		};
 
 		let dest_path = root_dest.join(relative);
-		let metadata = match entry.metadata().src("could not stat directory", &abs) {
-			Ok(o) => o,
-			Err(e) => {
-				print_error!(e, options.verbose);
-				continue;
-			}
-		};
 		if metadata.is_dir() {
 			index.add_directory(DirTask { src: abs, dest: dest_path });
-		} else if let Err(e) = index_file(&abs, &dest_path, index, options, false) {
+		} else if let Err(e) = index_file(&abs, &dest_path, index, options, &metadata, root_device, false) {
 			print_error!(e, options.verbose);
 			continue;
 		}
@@ -334,6 +350,7 @@ mod tests {
 		let multibar = MultiProgress::new();
 		let args = Args {
 			recursive: true,
+			one_file_system: true,
 			..Default::default()
 		};
 

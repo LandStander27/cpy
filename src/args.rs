@@ -54,6 +54,9 @@ pub struct Args {
 	)]
 	pub reflink: ReflinkMode,
 
+	#[arg(short = 'x', long, help = "stay on the same file system per SOURCE")]
+	pub one_file_system: bool,
+
 	#[arg(help = "sources to copy", required = true)]
 	pub src: Vec<String>,
 
@@ -82,6 +85,7 @@ impl Default for Args {
 			reflink: ReflinkMode::default(),
 			src: Vec::new(),
 			exclude: Vec::new(),
+			one_file_system: false,
 			quiet: false,
 			threads: 4,
 			update: false,
