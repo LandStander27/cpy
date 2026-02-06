@@ -20,6 +20,11 @@ pub fn verify_sources(src: &[PathBuf], dest: &Path, args: &Args) -> bool {
 			stop = true
 		}
 
+		if src == dest {
+			error!("`{}` and `{}` are the same {}", src.display(), dest.display(), if src.is_dir() { "folder" } else { "file" });
+			stop = true;
+		}
+
 		if src.is_dir() && !args.recursive {
 			warn!("`{}` is a directory, but --recursive was not supplied", src.display());
 		}
@@ -47,7 +52,20 @@ mod tests {
 	}
 
 	#[test]
-	fn test_verify() {
+	fn test_verify_multiple_to_file() {
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a.txt");
+		let b = temp.path().join("b.txt");
+		let c = temp.path().join("c.txt");
+		create_file(&a);
+		create_file(&b);
+		create_file(&c);
+
+		assert!(!verify_sources(&[a.clone(), b.clone()], &c, &Args::default()));
+	}
+
+	#[test]
+	fn test_verify_correctly() {
 		let temp = TempDir::new().unwrap();
 		let a = temp.path().join("a.txt");
 		let b = temp.path().join("b.txt");
@@ -57,9 +75,28 @@ mod tests {
 		create_file(&a);
 		create_file(&b);
 		create_file(&c);
+		create_file(&d);
 
-		assert!(!verify_sources(&[a.clone(), b.clone()], &c, &Args::default()));
+		assert!(verify_sources(&[a, b, c, d], &e, &Args::default()));
+	}
+
+	#[test]
+	fn test_verify_dne() {
+		let temp = TempDir::new().unwrap();
+		let c = temp.path().join("c.txt");
+		let d = temp.path().join("d.txt");
+		create_file(&c);
+
 		assert!(!verify_sources(&[d], &c, &Args::default()));
-		assert!(verify_sources(&[a, b, c], &e, &Args::default()));
+	}
+
+	#[test]
+	fn test_verify_same_file() {
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a.txt");
+		let b = temp.path().join("a.txt");
+		create_file(&a);
+
+		assert!(!verify_sources(&[a], &b, &Args::default()));
 	}
 }
