@@ -122,6 +122,7 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 	let dest_file = match File::create_new(dest).src("could not open file write-only", dest) {
 		Ok(o) => o,
 		Err(e) if options.force => {
+			info!("(from --force) deleting {}", dest.display());
 			std::fs::remove_file(dest).src("could not delete file after open fail", dest)?;
 			File::create_new(dest).src("could not open file write-only", dest)?
 		}
