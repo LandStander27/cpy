@@ -312,6 +312,7 @@ mod tests {
 		let multibar = MultiProgress::new();
 		let args = Args {
 			recursive: true,
+			src: vec![a.display().to_string(), b.display().to_string(), c.display().to_string()],
 			..Default::default()
 		};
 
