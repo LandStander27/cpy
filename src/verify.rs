@@ -20,6 +20,7 @@ pub fn verify_sources(src: &[PathBuf], dest: &Path, args: &Args) -> bool {
 			stop = true
 		}
 
+		trace!("{}, {}", src.display(), dest.display());
 		if src == dest {
 			error!("`{}` and `{}` are the same {}", src.display(), dest.display(), if src.is_dir() { "folder" } else { "file" });
 			stop = true;
