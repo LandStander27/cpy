@@ -75,7 +75,9 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 		return Ok(());
 	}
 
-	if !errors.is_empty() {
+	if options.verbose >= 4 {
+		errors.iter().for_each(|x| print_error!(x, options.verbose));
+	} else if !errors.is_empty() {
 		options
 			.pb
 			.finish(&options.multibar, Some("completed with errors".to_string()));
