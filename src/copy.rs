@@ -24,7 +24,7 @@ use crate::{
 	index::Index,
 	options::Options,
 	print_error,
-	util::{attr::copy_attributes, log::WrapErrExt, verify},
+	util::{attr::copy_attributes, checksum, log::WrapErrExt},
 };
 
 pub fn copy(index: &Index, options: &Options) -> Result<()> {
@@ -201,7 +201,7 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 	}
 
 	if options.verify {
-		let res = verify::is_same_file(src, dest)?;
+		let res = checksum::is_same_file(src, dest)?;
 		if !res.is_same {
 			warn!("{} was corrupted during copy", dest.display());
 			debug!("checksums src: {}, dest: {}", res.src, res.dest);
