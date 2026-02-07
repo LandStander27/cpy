@@ -52,3 +52,48 @@ pub fn is_same_file(src: &Path, dest: &Path) -> Result<CheckResults> {
 		dest: dest_hash,
 	});
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use tempfile::TempDir;
+
+	fn create_file(path: &Path, contents: &str) {
+		if let Some(parent) = path.parent() {
+			std::fs::create_dir_all(parent).unwrap();
+		}
+		std::fs::write(path, contents).unwrap();
+	}
+
+	#[test]
+	fn test_verify_same() {
+		let temp = TempDir::new().unwrap();
+		let src = temp.path().join("a.txt");
+		let dest = temp.path().join("b.txt");
+
+		create_file(&src, "test\n");
+		create_file(&dest, "test\n");
+
+		let res = is_same_file(&src, &dest).unwrap();
+		assert!(res.is_same);
+		assert_eq!(res.src, res.dest);
+		assert_eq!(res.src, 7147276431135252565);
+		assert_eq!(res.dest, 7147276431135252565);
+	}
+
+	#[test]
+	fn test_verify_different() {
+		let temp = TempDir::new().unwrap();
+		let src = temp.path().join("a.txt");
+		let dest = temp.path().join("b.txt");
+
+		create_file(&src, "test\n");
+		create_file(&dest, "another test\n");
+
+		let res = is_same_file(&src, &dest).unwrap();
+		assert!(!res.is_same);
+		assert_ne!(res.src, res.dest);
+		assert_eq!(res.src, 7147276431135252565);
+		assert_eq!(res.dest, 11589011247844422973);
+	}
+}
