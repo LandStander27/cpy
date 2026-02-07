@@ -105,6 +105,11 @@ fn main() -> Result<std::process::ExitCode> {
 		return Ok(130.into());
 	}
 
+	if index.total_files == 0 && index.total_size == 0 && index.dirs.is_empty() && index.symlinks.is_empty() && index.files.is_empty() {
+		warn!("no files to copy, exiting");
+		return Ok(0.into());
+	}
+
 	if !index.dirs.is_empty() {
 		trace!("creating dirs");
 		let ticker = if args.quiet {
