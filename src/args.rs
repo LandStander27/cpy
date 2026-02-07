@@ -25,6 +25,9 @@ pub struct Args {
 	#[arg(short, long, help = "hide progress bar (recommended with --verbose)")]
 	pub quiet: bool,
 
+	#[arg(short = 'c', long, help = "perform checksum verification (not applicable to --reflink)")]
+	pub verify: bool,
+
 	#[arg(long, help = "do not perform any copy operations")]
 	pub dry_run: bool,
 
@@ -91,6 +94,7 @@ impl Default for Args {
 			update: false,
 			verbose: 0,
 			dry_run: false,
+			verify: false,
 		};
 
 		#[cfg(feature = "generators")]

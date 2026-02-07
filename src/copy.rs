@@ -24,7 +24,7 @@ use crate::{
 	index::Index,
 	options::Options,
 	print_error,
-	util::{attr::copy_attributes, log::WrapErrExt},
+	util::{attr::copy_attributes, log::WrapErrExt, verify},
 };
 
 pub fn copy(index: &Index, options: &Options) -> Result<()> {
@@ -198,6 +198,19 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 
 	if options.archive {
 		copy_attributes(src, dest).src("could not copy file attributes", src)?;
+	}
+
+	if options.verify {
+		let res = verify::is_same_file(src, dest)?;
+		if !res.is_same {
+			warn!("{} was corrupted during copy", dest.display());
+			debug!("checksums src: {}, dest: {}", res.src, res.dest);
+
+			info!("deleted {}", dest.display());
+			std::fs::remove_file(dest).src("could not delete", dest)?;
+
+			return Err(eyre!("{} -> {}: was corrupted on copy (checksum check failed)", src.display(), dest.display()));
+		}
 	}
 
 	let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
