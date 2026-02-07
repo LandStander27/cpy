@@ -38,6 +38,7 @@ pub fn create_directories(dirs: &[DirTask], options: &Options) -> Result<()> {
 			return Ok(());
 		}
 
+		info!("created {}", dir.dest.display());
 		match std::fs::create_dir(&dir.dest) {
 			Ok(()) => {}
 			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}

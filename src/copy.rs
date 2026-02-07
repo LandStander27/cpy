@@ -31,6 +31,8 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 	let completed_files = Arc::new(AtomicUsize::new(0));
 	if !index.symlinks.is_empty() {
 		for link in &index.symlinks {
+			info!("symlink {} -> {}", link.dest.display(), link.target.display());
+
 			if !options.dry_run {
 				std::os::unix::fs::symlink(&link.target, &link.dest).src("could not create symlink", &link.dest)?;
 			}
