@@ -82,6 +82,7 @@ Options:
       --version            print version
   -v, --verbose...         increase verbosity, which can slow down copying significantly if --quiet is not supplied (-v: info, -vv: debug, -vvv: trace, -vvvv: trace, more detailed errors)
   -q, --quiet              hide progress bar (recommended with --verbose)
+  -c, --verify             perform checksum verification (not applicable to --reflink)
       --dry-run            do not perform any copy operations
   -r, --recursive          copy directories recursively [aliases: -R]
   -a, --archive            preserves all file attributes
