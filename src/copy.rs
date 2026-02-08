@@ -34,7 +34,15 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 			info!("symlink {} -> {}", link.dest.display(), link.target.display());
 
 			if !options.dry_run {
-				std::os::unix::fs::symlink(&link.target, &link.dest).src("could not create symlink", &link.dest)?;
+				match std::os::unix::fs::symlink(&link.target, &link.dest).src("could not create symlink", &link.dest) {
+					Ok(_) => (),
+					Err(e) if options.force => {
+						info!("(from --force) deleting {}", link.dest.display());
+						std::fs::remove_file(&link.dest).src("could not delete symlink after fail", &link.dest)?;
+						std::os::unix::fs::symlink(&link.target, &link.dest).src("could not create symlink", &link.dest)?;
+					}
+					Err(e) => return Err(e),
+				}
 			}
 
 			let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
@@ -122,6 +130,100 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 		return Ok(());
 	}
 
+	#[cfg(target_os = "linux")]
+	{
+		if !kernel_copy(src, dest, file_size, options).unwrap_or(false) {
+			debug!("copy_file_range failed... retrying with userspace copy...");
+			copy_core(src, dest, file_size, options)?;
+		}
+	}
+
+	#[cfg(not(target_os = "linux"))]
+	copy_core(src, dest, file_size, options)?;
+
+	if options.archive {
+		copy_attributes(src, dest).src("could not copy file attributes", src)?;
+	}
+
+	if options.verify {
+		let res = checksum::is_same_file(src, dest)?;
+		if !res.is_same {
+			warn!("{} was corrupted during copy", dest.display());
+			debug!("checksums src: {}, dest: {}", res.src, res.dest);
+
+			info!("deleted {}", dest.display());
+			std::fs::remove_file(dest).src("could not delete", dest)?;
+
+			return Err(eyre!("{} -> {}: was corrupted on copy (checksum check failed)", src.display(), dest.display()));
+		}
+	}
+
+	let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
+	options
+		.pb
+		.set_message(format!("copying: {}/{} files", completed, total_files));
+
+	return Ok(());
+}
+
+#[cfg(target_os = "linux")]
+fn kernel_copy(src: &Path, dest: &Path, file_size: u64, options: &Options) -> Result<bool> {
+	let src_file = File::open(src).src("could not open file read-only", src)?;
+	let dest_file = match File::create_new(dest).src("could not open file write-only", dest) {
+		Ok(o) => o,
+		Err(e) if options.force => {
+			info!("(from --force) deleting {}", dest.display());
+			std::fs::remove_file(dest).src("could not delete file after open fail", dest)?;
+			File::create_new(dest).src("could not open file write-only", dest)?
+		}
+		Err(e) => return Err(e),
+	};
+
+	const TARGET_UPDATES: u64 = 128;
+	const MIN_CHUNK: usize = 4 * 1024 * 1024;
+	let chunk_size = std::cmp::max(MIN_CHUNK, (file_size / TARGET_UPDATES) as usize);
+	let mut total_copied = 0_u64;
+
+	loop {
+		use nix::fcntl::copy_file_range;
+
+		if options.abort.load(Ordering::Relaxed) {
+			drop(dest_file);
+
+			if !options.pb.is_finished() {
+				options.pb.finish(&options.multibar, None);
+			}
+
+			if let Err(e) = std::fs::remove_file(dest).src("could not remove incomplete file", dest) {
+				print_error!(e, options.verbose);
+			}
+
+			info!("cleaned up incomplete file: `{}`", dest.display());
+
+			return Ok(true);
+		}
+
+		let to_copy = chunk_size.min((file_size - total_copied) as usize);
+		if to_copy == 0 {
+			break;
+		}
+
+		match copy_file_range(&src_file, None, &dest_file, None, to_copy) {
+			Ok(0) => break,
+			Ok(copied) => {
+				total_copied += copied as u64;
+				options.pb.inc(copied as u64);
+			}
+			Err(_) => {
+				return Ok(false);
+			}
+		}
+	}
+
+	return Ok(true);
+}
+
+fn copy_core(src: &Path, dest: &Path, file_size: u64, options: &Options) -> Result<()> {
 	let mut src_file = File::open(src).src("could not open file read-only", src)?;
 	let dest_file = match File::create_new(dest).src("could not open file write-only", dest) {
 		Ok(o) => o,
@@ -133,7 +235,7 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 		Err(e) => return Err(e),
 	};
 
-	let mut accumulated_bytes = 0u64;
+	let mut accumulated_bytes = 0_u64;
 
 	let buffer_size: usize = if file_size < 1024 * 1024 {
 		64 * 1024
@@ -195,28 +297,6 @@ fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Ato
 	}
 
 	dest_file.flush().src("could not flush data", dest)?;
-
-	if options.archive {
-		copy_attributes(src, dest).src("could not copy file attributes", src)?;
-	}
-
-	if options.verify {
-		let res = checksum::is_same_file(src, dest)?;
-		if !res.is_same {
-			warn!("{} was corrupted during copy", dest.display());
-			debug!("checksums src: {}, dest: {}", res.src, res.dest);
-
-			info!("deleted {}", dest.display());
-			std::fs::remove_file(dest).src("could not delete", dest)?;
-
-			return Err(eyre!("{} -> {}: was corrupted on copy (checksum check failed)", src.display(), dest.display()));
-		}
-	}
-
-	let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
-	options
-		.pb
-		.set_message(format!("copying: {}/{} files", completed, total_files));
 
 	return Ok(());
 }
