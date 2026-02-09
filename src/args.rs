@@ -11,7 +11,7 @@ use {
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "cpy", disable_help_flag = true, disable_version_flag = true, version = version::version)]
-#[command(about = "cp but better (hopefully)", long_about = None)]
+#[command(about = "cp but better (hopefully)\nrepository: https://codeberg.org/Land/cpy", long_about = None)]
 pub struct Args {
 	#[arg(short, long, help = "display help", action = clap::builder::ArgAction::Help)]
 	pub help: (),
