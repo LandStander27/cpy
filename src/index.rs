@@ -163,7 +163,11 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 		return Ok(());
 	}
 
-	let root_dest = dest.join(src.file_name().src("could not get filename", src)?);
+	let root_dest = if options.one_source {
+		dest.to_path_buf()
+	} else {
+		dest.join(src.file_name().src("could not get filename", src)?)
+	};
 
 	index.add_directory(DirTask {
 		src: src.to_path_buf(),

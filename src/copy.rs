@@ -333,3 +333,115 @@ fn reflink(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<Atomic
 
 	return Ok(true);
 }
+
+#[cfg(test)]
+mod tests {
+	use std::sync::atomic::AtomicBool;
+
+	use crate::{
+		args::Args,
+		index::index,
+		util::{exclude::ExcludeRules, progress::ProgressBar},
+	};
+
+	use super::*;
+
+	use indicatif::MultiProgress;
+	use tempfile::TempDir;
+
+	fn create_file(path: &Path) {
+		if let Some(parent) = path.parent() {
+			std::fs::create_dir_all(parent).unwrap();
+		}
+		std::fs::write(path, "test\n").unwrap();
+	}
+
+	#[test]
+	fn test_copy_single() {
+		let args = Args::default();
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a.txt");
+		let b = temp.path().join("b.txt");
+
+		create_file(&a);
+
+		let mut options = Options::new(
+			&args,
+			&b,
+			ExcludeRules::default(),
+			MultiProgress::new(),
+			ProgressBar::new_dummy(),
+			Arc::new(AtomicBool::new(false)),
+		);
+
+		let index = index(&[a], b.clone(), &mut options);
+		copy(&index, &options).unwrap();
+
+		assert_eq!(std::fs::read_to_string(&b).unwrap(), "test\n");
+	}
+
+	#[test]
+	fn test_copy_multi() {
+		let args = Args {
+			src: vec![String::new(), String::new()],
+			..Default::default()
+		};
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a.txt");
+		let b = temp.path().join("b.txt");
+		let c = temp.path().join("c");
+
+		create_file(&a);
+		create_file(&b);
+		std::fs::create_dir_all(&c).unwrap();
+
+		let mut options = Options::new(
+			&args,
+			&b,
+			ExcludeRules::default(),
+			MultiProgress::new(),
+			ProgressBar::new_dummy(),
+			Arc::new(AtomicBool::new(false)),
+		);
+
+		let index = index(&[a, b], c.clone(), &mut options);
+		copy(&index, &options).unwrap();
+
+		assert_eq!(std::fs::read_to_string(c.join("a.txt")).unwrap(), "test\n");
+		assert_eq!(std::fs::read_to_string(c.join("b.txt")).unwrap(), "test\n");
+	}
+
+	#[test]
+	fn test_copy_recursive() {
+		let args = Args {
+			src: vec![String::new()],
+			recursive: true,
+			..Default::default()
+		};
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a");
+		let b = a.join("b.txt");
+		let c = a.join("c.txt");
+		let d = temp.path().join("d");
+
+		std::fs::create_dir_all(&a).unwrap();
+		create_file(&b);
+		create_file(&c);
+		std::fs::create_dir_all(&d).unwrap();
+
+		let mut options = Options::new(
+			&args,
+			&b,
+			ExcludeRules::default(),
+			MultiProgress::new(),
+			ProgressBar::new_dummy(),
+			Arc::new(AtomicBool::new(false)),
+		);
+
+		let index = index(&[a], d.clone(), &mut options);
+		copy(&index, &options).unwrap();
+
+		assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "test\n");
+		assert_eq!(std::fs::read_to_string(d.join("c.txt")).unwrap(), "test\n");
+	}
+}
