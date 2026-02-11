@@ -14,14 +14,14 @@ use crate::args::Args;
 pub fn verify_sources(src: &[PathBuf], dest: &Path, args: &Args) -> bool {
 	let mut stop = false;
 
+	let realpath = &dest.canonicalize().unwrap_or(dest.to_path_buf());
 	for src in src {
 		if !src.exists() {
 			error!("`{}` does not exist", src.display());
 			stop = true
 		}
 
-		trace!("{}, {}", src.display(), dest.display());
-		if src == dest {
+		if src == dest || src == realpath {
 			error!("`{}` and `{}` are the same {}", src.display(), dest.display(), if src.is_dir() { "folder" } else { "file" });
 			stop = true;
 		}

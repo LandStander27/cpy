@@ -101,6 +101,10 @@ fn main() -> Result<std::process::ExitCode> {
 	let index = index::index(&src, dest, &mut options);
 	ticker.finish(&multibar, None);
 
+	if cfg!(debug_assertions) {
+		trace!("{index:#?}");
+	}
+
 	if options.abort.load(Ordering::Relaxed) {
 		return Ok(130.into());
 	}

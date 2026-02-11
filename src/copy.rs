@@ -341,7 +341,7 @@ mod tests {
 	use crate::{
 		args::Args,
 		index::index,
-		util::{exclude::ExcludeRules, progress::ProgressBar},
+		util::{exclude::ExcludeRules, prepare::create_directories, progress::ProgressBar},
 	};
 
 	use super::*;
@@ -427,7 +427,6 @@ mod tests {
 		std::fs::create_dir_all(&a).unwrap();
 		create_file(&b);
 		create_file(&c);
-		std::fs::create_dir_all(&d).unwrap();
 
 		let mut options = Options::new(
 			&args,
@@ -439,6 +438,7 @@ mod tests {
 		);
 
 		let index = index(&[a], d.clone(), &mut options);
+		create_directories(&index.dirs, &options).unwrap();
 		copy(&index, &options).unwrap();
 
 		assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "test\n");

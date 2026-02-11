@@ -163,10 +163,10 @@ fn index_directory(src: &Path, dest: &Path, index: &mut Index, options: &mut Opt
 		return Ok(());
 	}
 
-	let root_dest = if options.one_source {
-		dest.to_path_buf()
-	} else {
+	let root_dest = if dest.exists() {
 		dest.join(src.file_name().src("could not get filename", src)?)
+	} else {
+		dest.to_path_buf()
 	};
 
 	index.add_directory(DirTask {
@@ -287,6 +287,7 @@ mod tests {
 		let multibar = MultiProgress::new();
 		let args = Args {
 			recursive: false,
+			src: vec![a.display().to_string(), b.display().to_string(), c.display().to_string()],
 			..Default::default()
 		};
 
@@ -334,6 +335,43 @@ mod tests {
 			&SymlinkTask {
 				dest: dest.join("a.txt"),
 				target: a2,
+			}
+		);
+	}
+
+	#[test]
+	fn test_dir_indexing() {
+		let temp = TempDir::new().unwrap();
+		let a = temp.path().join("a");
+		let b = a.join("b.txt");
+		let c = temp.path().join("c");
+		let dest = c.join(".");
+
+		std::fs::create_dir_all(&a).unwrap();
+		create_file(&b);
+		std::fs::create_dir_all(&c).unwrap();
+
+		let multibar = MultiProgress::new();
+		let args = Args {
+			recursive: true,
+			one_file_system: true,
+			..Default::default()
+		};
+
+		let mut options = Options::new(&args, &dest, Default::default(), multibar, ProgressBar::new_dummy(), Arc::new(AtomicBool::new(false)));
+
+		let index = index(&[a], dest.clone(), &mut options);
+
+		assert_eq!(index.files.len(), 1);
+		assert_eq!(index.dirs.len(), 1);
+		assert_eq!(index.total_files, 1);
+
+		assert_eq!(
+			index.files[0],
+			FileTask {
+				src: b,
+				dest: dest.join("a/b.txt"),
+				size: 5
 			}
 		);
 	}

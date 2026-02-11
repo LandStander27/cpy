@@ -23,7 +23,7 @@ pub fn prepare_paths(args: &Args) -> Result<(Vec<PathBuf>, PathBuf)> {
 		.collect::<Result<Vec<PathBuf>>>()?;
 
 	let dest = PathBuf::from(&args.dest);
-	let dest = dest.canonicalize().unwrap_or(dest);
+	// let dest = dest.canonicalize().unwrap_or(dest);
 
 	return Ok((src, dest));
 }
