@@ -215,6 +215,7 @@ fn kernel_copy(src: &Path, dest: &Path, file_size: u64, options: &Options) -> Re
 				options.pb.inc(copied as u64);
 			}
 			Err(_) => {
+				std::fs::remove_file(dest).src("could not delete failed copy", dest)?;
 				return Ok(false);
 			}
 		}
