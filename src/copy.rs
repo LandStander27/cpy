@@ -36,7 +36,7 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 			if !options.dry_run {
 				match std::os::unix::fs::symlink(&link.target, &link.dest).src("could not create symlink", &link.dest) {
 					Ok(_) => (),
-					Err(e) if options.force => {
+					Err(_e) if options.force => {
 						info!("(from --force) deleting {}", link.dest.display());
 						std::fs::remove_file(&link.dest).src("could not delete symlink after fail", &link.dest)?;
 						std::os::unix::fs::symlink(&link.target, &link.dest).src("could not create symlink", &link.dest)?;
@@ -171,7 +171,7 @@ fn kernel_copy(src: &Path, dest: &Path, file_size: u64, options: &Options) -> Re
 	let src_file = File::open(src).src("could not open file read-only", src)?;
 	let dest_file = match File::create_new(dest).src("could not open file write-only", dest) {
 		Ok(o) => o,
-		Err(e) if options.force => {
+		Err(_e) if options.force => {
 			info!("(from --force) deleting {}", dest.display());
 			std::fs::remove_file(dest).src("could not delete file after open fail", dest)?;
 			File::create_new(dest).src("could not open file write-only", dest)?
@@ -228,7 +228,7 @@ fn copy_core(src: &Path, dest: &Path, file_size: u64, options: &Options) -> Resu
 	let mut src_file = File::open(src).src("could not open file read-only", src)?;
 	let dest_file = match File::create_new(dest).src("could not open file write-only", dest) {
 		Ok(o) => o,
-		Err(e) if options.force => {
+		Err(_e) if options.force => {
 			info!("(from --force) deleting {}", dest.display());
 			std::fs::remove_file(dest).src("could not delete file after open fail", dest)?;
 			File::create_new(dest).src("could not open file write-only", dest)?

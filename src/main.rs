@@ -137,7 +137,7 @@ fn main() -> Result<std::process::ExitCode> {
 	}
 
 	// 5 MB
-	let pb = if args.quiet || (index.total_files == 1 && index.total_size <= 1024 * 1024 * 1024 * 5) {
+	let pb = if args.quiet || (index.total_files == 1 && index.total_size <= 1024 * 1024 * 5) {
 		ProgressBar::new_dummy()
 	} else {
 		ProgressBar::new_bar(&multibar, index.total_size, Some(format!("copying: 0/{} files", index.total_files)))
