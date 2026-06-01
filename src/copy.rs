@@ -91,7 +91,11 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 		options
 			.pb
 			.finish(&options.multibar, Some("completed with errors".to_string()));
-		eprintln!("\nfailed to copy {} file{}:", errors.len(), if errors.len() == 1 { "" } else { "s" });
+		if errors.len() == 1 {
+			eprintln!("\nfailed to copy file:");
+		} else {
+			eprintln!("\nfailed to copy {} files:", errors.len());
+		}
 		for err in errors.iter().take(5) {
 			eprintln!("    {err:#}");
 		}
