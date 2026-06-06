@@ -1,6 +1,7 @@
 use std::{
+	fmt::Write as FmtWrite,
 	fs::File,
-	io::{BufWriter, Read, Write},
+	io::{BufWriter, Read, Write as IoWrite},
 	path::Path,
 	sync::{
 		Arc,
@@ -27,7 +28,7 @@ use crate::{
 	util::{attr::copy_attributes, checksum, log::WrapErrExt},
 };
 
-pub fn copy(index: &Index, options: &Options) -> Result<()> {
+pub fn copy(index: &Index, options: &Options) -> Result<String> {
 	let completed_files = Arc::new(AtomicUsize::new(0));
 	if !index.symlinks.is_empty() {
 		for link in &index.symlinks {
@@ -79,10 +80,15 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 		let completed = completed_files.load(Ordering::Relaxed);
 
 		options.pb.finish(&options.multibar, None);
-		eprintln!("\ncompleted:  {} files", completed);
-		eprintln!("remaining:  {} files", index.total_files as usize - completed);
+		let mut s = String::new();
+		writeln!(&mut s, "completed:  {completed} files")?;
+		writeln!(&mut s, "remaining:  {} files", index.total_files as usize - completed)?;
+		// eprintln!("\n{s}");
 
-		return Ok(());
+		// eprintln!("\ncompleted:  {} files", completed);
+		// eprintln!("remaining:  {} files", index.total_files as usize - completed);
+
+		return Ok(s);
 	}
 
 	if options.verbose >= 4 {
@@ -91,25 +97,31 @@ pub fn copy(index: &Index, options: &Options) -> Result<()> {
 		options
 			.pb
 			.finish(&options.multibar, Some("completed with errors".to_string()));
+		let mut s = String::new();
 		if errors.len() == 1 {
-			eprintln!("\nfailed to copy file:");
+			writeln!(&mut s, "failed to copy file:")?;
+			// eprintln!("\nfailed to copy file:");
 		} else {
-			eprintln!("\nfailed to copy {} files:", errors.len());
-		}
+			writeln!(&mut s, "failed to copy {} files:", errors.len())?;
+			// eprintln!("\nfailed to copy {} files:", errors.len());
+		};
 		for err in errors.iter().take(5) {
-			eprintln!("    {err:#}");
+			writeln!(&mut s, "    {err:#}")?;
+			// eprintln!("    {err:#}");
 		}
 		if errors.len() > 5 {
-			eprintln!("    ... and {} more", errors.len() - 5);
+			writeln!(&mut s, "    ... and {} more", errors.len() - 5)?;
+			// eprintln!("    ... and {} more", errors.len() - 5);
 		}
+
+		return Ok(s);
 	}
 
-	// info!("copied {} files", completed_files.load(Ordering::Relaxed));
 	options
 		.pb
 		.finish(&options.multibar, Some(format!("copied {} files successfully", completed_files.load(Ordering::Relaxed))));
 
-	return Ok(());
+	return Ok(String::new());
 }
 
 fn copy_inner(src: &Path, dest: &Path, file_size: u64, completed_files: &Arc<AtomicUsize>, total_files: u64, options: &Options) -> Result<()> {

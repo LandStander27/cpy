@@ -50,6 +50,14 @@ pub struct Args {
 	pub exclude: Vec<String>,
 
 	#[arg(
+		short = 's',
+		long,
+		help = "run COMMAND when copying finished, giving information about the copy through stdin (passed into /bin/sh)",
+		value_name = "COMMAND"
+	)]
+	pub run_when_done: Option<String>,
+
+	#[arg(
 		long,
 		help = "copy files as CoW copies. see https://btrfs.readthedocs.io/en/latest/Reflink.html",
 		default_value = "auto",
@@ -95,6 +103,7 @@ impl Default for Args {
 			verbose: 0,
 			dry_run: false,
 			verify: false,
+			run_when_done: None,
 		};
 
 		#[cfg(feature = "generators")]

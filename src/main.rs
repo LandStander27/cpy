@@ -1,5 +1,7 @@
 #![cfg_attr(feature = "generators", allow(unreachable_code))]
 
+use std::io::Write;
+use std::process::{Command, Stdio};
 use std::sync::atomic::Ordering;
 
 use clap::Parser;
@@ -14,7 +16,7 @@ use crate::{
 use {
 	color_eyre::{
 		Result,
-		eyre::{Context as EyreContext, eyre},
+		eyre::{Context as EyreContext, ContextCompat, eyre},
 	},
 	log::{debug, error, info, trace, warn},
 };
@@ -26,6 +28,42 @@ mod options;
 mod signal;
 mod util;
 mod verify;
+
+fn report_finished_inner(command: &str, body: &str) -> Result<()> {
+	let mut proc = Command::new("/bin/sh")
+		.arg("-c")
+		.arg(command)
+		.stdout(Stdio::null())
+		.stderr(Stdio::inherit())
+		.stdin(Stdio::piped())
+		.spawn()
+		.context("could not spawn command")?;
+
+	let mut stdin = proc.stdin.take().context("expected stdin")?;
+	stdin
+		.write_all(body.as_bytes())
+		.context("could not write body to stdin")?;
+	stdin
+		.write_all(&[4])
+		.context("could not write EOF to stdin")?;
+	stdin.flush().context("could not flush stdin")?;
+
+	drop(stdin);
+	let status = proc.wait().context("command not running")?;
+	if !status.success() {
+		error!("--run-when-done command exited with non-zero ({}) exit code", status.code().unwrap_or(-1));
+	}
+
+	return Ok(());
+}
+
+fn report_finished(command: &Option<String>, body: impl AsRef<str>, verbose: u8) {
+	if let Some(s) = command
+		&& let Err(e) = report_finished_inner(s, body.as_ref())
+	{
+		print_error!(e, verbose);
+	}
+}
 
 fn main() -> Result<std::process::ExitCode> {
 	let args = Args::parse();
@@ -125,6 +163,7 @@ fn main() -> Result<std::process::ExitCode> {
 		if !options.dry_run
 			&& let Err(e) = create_directories(&index.dirs, &options)
 		{
+			report_finished(&args.run_when_done, format!("could not copy due to error:\n{e:?}"), args.verbose);
 			print_error!(e, args.verbose);
 			return Ok(1.into());
 		}
@@ -145,9 +184,32 @@ fn main() -> Result<std::process::ExitCode> {
 	options.pb = pb;
 
 	trace!("copying");
-	if let Err(e) = copy::copy(&index, &options) {
-		print_error!(e, options.verbose);
-		return Ok(1.into());
+	match copy::copy(&index, &options) {
+		Ok(o) if !o.is_empty() => {
+			eprintln!("\n{o}");
+			report_finished(&args.run_when_done, &o, args.verbose);
+		}
+		Ok(_) => {
+			report_finished(
+				&args.run_when_done,
+				if args.src.len() == 1 {
+					format!("copied **{}** files successfully.\n\n{} -> {}", index.total_files, args.src[0], args.dest)
+				} else {
+					format!(
+						"copied **{}** files successfully.\n\n# Sources\n- {}\n # Destination\n{}",
+						index.total_files,
+						args.src.join("- "),
+						args.dest
+					)
+				},
+				args.verbose,
+			);
+		}
+		Err(e) => {
+			report_finished(&args.run_when_done, format!("could not copy due to error:\n{e:?}"), args.verbose);
+			print_error!(e, options.verbose);
+			return Ok(1.into());
+		}
 	}
 
 	if options.abort.load(Ordering::Relaxed) {
